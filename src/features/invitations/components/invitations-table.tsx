@@ -70,7 +70,7 @@ export default function InvitationsTable() {
 
           {!isInvitationsLoading && invitations.length === 0 && (
             <TableRow>
-              <TableCell colSpan={5} className="py-10 text-center">
+              <TableCell colSpan={4} className="py-10 text-center">
                 <span className="text-sm text-muted-foreground">
                   No pending invitations.
                 </span>
@@ -80,8 +80,6 @@ export default function InvitationsTable() {
 
           {!isInvitationsLoading &&
             invitations.map((invitation) => {
- 
-
               return (
                 <TableRow key={invitation.id}>
                   <TableCell className="text-sm font-medium">
