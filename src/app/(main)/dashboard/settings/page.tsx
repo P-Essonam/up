@@ -1,7 +1,20 @@
-import React from "react";
+import React from "react"
 
-const page = () => {
-  return <div>page</div>;
-};
+import GeneralSettings from "@/features/general/components/general-settings"
 
-export default page;
+const GeneralSettingsPage = () => {
+  return (
+    <div className="space-y-6">
+      <div>
+        <h1 className="text-xl font-semibold">General Settings</h1>
+        <p className="text-sm text-muted-foreground">
+          Manage your organization settings and preferences.
+        </p>
+      </div>
+
+      <GeneralSettings />
+    </div>
+  )
+}
+
+export default GeneralSettingsPage

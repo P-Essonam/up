@@ -10,16 +10,12 @@ import {
   Calendar,
   Settings,
   UserPlus,
-  ChevronDown,
-  ChevronsLeft,
   ChevronsRight,
-  Plus,
 } from "lucide-react"
-import { Button } from "@/components/ui/button"
 import UserButton from "@/components/user-button"
 import WorkspaceHeader from "@/components/workspace-header"
 import { cn } from "@/lib/utils"
-import { useIsMobile } from "@/hooks/use-mobile"
+import { SidebarProvider, useSidebar } from "@/components/sidebar-context"
 
 const navItems = [
   { title: "Home", url: "/dashboard", icon: Home },
@@ -34,26 +30,26 @@ interface Props {
 }
 
 export default function DashboardSidebar({ children }: Props) {
-  const pathname = usePathname()
-  const isMobile = useIsMobile()
-  const [sidebarOpen, setSidebarOpen] = React.useState(true)
+  return (
+    <SidebarProvider>
+      <DashboardSidebarContent>{children}</DashboardSidebarContent>
+    </SidebarProvider>
+  )
+}
 
-  // Auto-collapse on mobile
-  React.useEffect(() => {
-    setSidebarOpen(!isMobile)
-  }, [isMobile])
-  
+
+function DashboardSidebarContent({ children }: Props) {
+  const pathname = usePathname()
+  const { sidebarOpen, openSidebar } = useSidebar()
   const isActive = (url: string) => {
     if (url === "/dashboard") return pathname === "/dashboard"
     return pathname.startsWith(url)
   }
 
-  const activeItem = navItems.find((item) => isActive(item.url)) || navItems[0]
-
   return (
     <div className="flex h-screen flex-col overflow-hidden px-2 pb-2">
       {/* Header */}
-      <header className="z-50 flex h-12 shrink-0 items-center justify-between bg-background">
+      <header className="flex h-12 shrink-0 items-center justify-between bg-background">
         <WorkspaceHeader />
 
         <UserButton />
@@ -63,12 +59,12 @@ export default function DashboardSidebar({ children }: Props) {
       <div className="flex flex-1 overflow-hidden gap-2">
         {/* Icon sidebar */}
         <aside className="flex w-16 shrink-0 flex-col rounded-lg bg-primary">
-          {/* Expand button - visible when sidebar collapsed */}
           {!sidebarOpen && (
             <div className="flex justify-center border-b border-primary-foreground/15 py-2">
               <button
-                onClick={() => setSidebarOpen(true)}
+                onClick={openSidebar}
                 className="text-primary-foreground/80 transition-colors hover:text-primary-foreground"
+                aria-label="Open sidebar"
               >
                 <span className="flex size-9 items-center justify-center rounded-lg transition-colors hover:bg-primary-foreground/10">
                   <ChevronsRight className="size-4" />
@@ -76,7 +72,6 @@ export default function DashboardSidebar({ children }: Props) {
               </button>
             </div>
           )}
-
           <nav className="flex flex-1 flex-col items-center gap-2 py-1">
             {navItems.map((item) => {
               const active = isActive(item.url)
@@ -115,44 +110,7 @@ export default function DashboardSidebar({ children }: Props) {
 
         {/* Main content area */}
         <main className="flex flex-1 overflow-hidden border rounded-lg">
-          {/* Secondary sidebar - part of main content */}
-          {sidebarOpen && (
-            <div className="group/secondary flex w-72 shrink-0 flex-col border-r bg-muted/30">
-              {/* Header with collapse on hover */}
-              <div className="flex items-center justify-between border-b border-border/70 px-4 py-3">
-                <h2 className="text-sm font-semibold">{activeItem.title}</h2>
-                <div className="flex items-center gap-1">
-                  {/* Collapse button - always visible on mobile, hover on desktop */}
-                  <Button
-                    variant="ghost"
-                    size="sm"
-                    onClick={() => setSidebarOpen(false)}
-                    className="h-8 border-none bg-transparent px-2 text-muted-foreground transition-opacity hover:bg-muted xl:opacity-0 xl:group-hover/secondary:opacity-100"
-                    title="Close sidebar"
-                  >
-                    <ChevronsLeft className="size-4" />
-                  </Button>
-                  <Button
-                    variant="outline"
-                    size="sm"
-                    className="h-8 gap-1 rounded-md border-border/70 bg-background/60 px-2 text-muted-foreground hover:bg-muted"
-                    title="Create"
-                  >
-                    <Plus className="size-4" />
-                    <ChevronDown className="size-3" />
-                  </Button>
-                </div>
-              </div>
-              <div className="flex-1 overflow-auto p-3">
-                {/* Sidebar content */}
-              </div>
-            </div>
-          )}
-
-          {/* Page content */}
-          <div className="flex-1 overflow-auto p-4">
-            {children}
-          </div>
+          {children}
         </main>
       </div>
     </div>
