@@ -1,0 +1,168 @@
+"use client"
+
+import React from "react"
+import { useQuery } from "@tanstack/react-query"
+import { useAuth } from "@workos-inc/authkit-nextjs/components"
+
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { Skeleton } from "@/components/ui/skeleton"
+import {
+  Table,
+  TableBody,
+  TableCell,
+  TableHead,
+  TableHeader,
+  TableRow,
+} from "@/components/ui/table"
+import { useTRPC } from "@/trpc/client"
+import InviteMemberDialog from "@/features/members/components/invite-member-dialog"
+import MemberActions from "@/features/members/components/member-actions"
+import MemberStatusBadge from "@/features/members/components/member-status-badge"
+import { formatDate } from "@/lib/utils"
+import { normalizeAdminMemberRole } from "@/features/members/lib/utils"
+
+export default function MembersTable() {
+  const trpc = useTRPC()
+  const { user } = useAuth()
+  const { data, isLoading } = useQuery(
+    trpc.organization.listMembers.queryOptions({ limit: 100 })
+  )
+
+  const members = data?.items ?? []
+  const currentUserRole = normalizeAdminMemberRole(
+    members.find((member) => member.id === user?.id)?.role
+  )
+  const adminCount = members.filter(
+    (member) => normalizeAdminMemberRole(member.role) === "admin"
+  ).length
+  const canInvite = currentUserRole === "admin"
+
+  return (
+    <div className="rounded-xl border border-border/60 bg-background">
+      <div className="flex items-center justify-between border-b border-border/60 px-4 py-3">
+        <div>
+          <h2 className="text-sm font-semibold">Team members</h2>
+          <p className="text-xs text-muted-foreground">
+            Manage workspace members and permissions.
+          </p>
+        </div>
+        <InviteMemberDialog canInvite={canInvite} />
+      </div>
+
+      <Table>
+        <TableHeader>
+          <TableRow>
+            <TableHead>User</TableHead>
+            <TableHead>Role</TableHead>
+            <TableHead>Membership</TableHead>
+            <TableHead>Last sign-in</TableHead>
+            <TableHead>Created</TableHead>
+            <TableHead className="text-right" />
+          </TableRow>
+        </TableHeader>
+        <TableBody>
+          {isLoading &&
+            Array.from({ length: 5 }).map((_, index) => (
+              <TableRow key={index}>
+                <TableCell>
+                  <div className="flex items-center gap-3">
+                    <Skeleton className="size-8 rounded-full" />
+                    <div className="space-y-1">
+                      <Skeleton className="h-3 w-32" />
+                      <Skeleton className="h-2.5 w-20" />
+                    </div>
+                  </div>
+                </TableCell>
+                <TableCell>
+                  <Skeleton className="h-3 w-16" />
+                </TableCell>
+                <TableCell>
+                  <Skeleton className="h-3 w-20" />
+                </TableCell>
+                <TableCell>
+                  <Skeleton className="h-3 w-20" />
+                </TableCell>
+                <TableCell>
+                  <Skeleton className="h-3 w-16" />
+                </TableCell>
+                <TableCell className="text-right">
+                  <Skeleton className="h-6 w-6 justify-self-end" />
+                </TableCell>
+              </TableRow>
+            ))}
+
+          {!isLoading && members.length === 0 && (
+            <TableRow>
+              <TableCell colSpan={6} className="py-10 text-center">
+                <span className="text-sm text-muted-foreground">
+                  No members found yet.
+                </span>
+              </TableCell>
+            </TableRow>
+          )}
+
+          {!isLoading &&
+            members.map((member) => {
+              const displayName = [member.firstName, member.lastName]
+                .filter(Boolean)
+                .join(" ")
+              const fallbackName = displayName || member.email
+              const initials = fallbackName
+                .split(" ")
+                .map((part) => part[0])
+                .slice(0, 2)
+                .join("")
+                .toUpperCase()
+
+              const role = normalizeAdminMemberRole(member.role)
+
+              return (
+                <TableRow key={member.membershipId}>
+                  <TableCell>
+                    <div className="flex items-center gap-3">
+                      <Avatar>
+                        <AvatarImage src={member.profilePictureUrl || undefined} />
+                        <AvatarFallback className="text-xs font-semibold">
+                          {initials}
+                        </AvatarFallback>
+                      </Avatar>
+                      <div className="flex flex-col">
+                        <span className="text-sm font-medium">{member.email}</span>
+                        {displayName && (
+                          <span className="text-xs text-muted-foreground">
+                            {displayName}
+                          </span>
+                        )}
+                      </div>
+                    </div>
+                  </TableCell>
+                  <TableCell className="text-sm text-muted-foreground capitalize">
+                    {role}
+                  </TableCell>
+                  <TableCell>
+                    <MemberStatusBadge status={member.membershipStatus} />
+                  </TableCell>
+                  <TableCell className="text-sm text-muted-foreground">
+                    {formatDate(member.lastSignInAt)}
+                  </TableCell>
+                  <TableCell className="text-sm text-muted-foreground">
+                    {formatDate(member.createdAt)}
+                  </TableCell>
+                  <TableCell className="text-right">
+                    <div className="flex justify-end">
+                      <MemberActions
+                        member={{ ...member, role }}
+                        currentUserId={user?.id}
+                        currentUserRole={currentUserRole}
+                        adminCount={adminCount}
+                      />
+                    </div>
+                  </TableCell>
+                </TableRow>
+              )
+            })}
+        </TableBody>
+      </Table>
+    </div>
+  )
+}
