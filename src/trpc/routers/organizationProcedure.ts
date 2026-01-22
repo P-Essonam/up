@@ -78,26 +78,26 @@ export const organizationRouter = createTRPCRouter({
   resendInvitation: protectedProcedure
     .input(
       z.object({
-        inviationId: z.string(),
+        invitationId: z.string(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
       const workos = getWorkOS();
-      const { inviationId } = input;
+      const { invitationId } = input;
 
-      return await workos.userManagement.resendInvitation(inviationId);
+      return await workos.userManagement.resendInvitation(invitationId);
     }),
   revokeInvitation: protectedProcedure
     .input(
       z.object({
-        inviationId: z.string(),
+        invitationId: z.string(),
       }),
     )
     .mutation(async ({ ctx, input }) => {
       const workos = getWorkOS();
-      const { inviationId } = input;
+      const { invitationId } = input;
 
-      return await workos.userManagement.revokeInvitation(inviationId);
+      return await workos.userManagement.revokeInvitation(invitationId);
     }),
   listInvitations: protectedProcedure
     .input(

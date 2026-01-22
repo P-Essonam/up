@@ -33,10 +33,11 @@ export default function SecondarySidebar({
             onClick={closeSidebar}
             className="h-8 border-none bg-transparent px-2 text-muted-foreground transition-opacity hover:bg-muted xl:opacity-0 xl:group-hover/secondary:opacity-100"
             title="Close sidebar"
+            aria-label="Close sidebar"
           >
             <ChevronsLeft className="size-4" />
           </Button>
-          {showCreateButton && (
+          {showCreateButton && onCreateClick && (
             <Button
               variant="outline"
               size="sm"

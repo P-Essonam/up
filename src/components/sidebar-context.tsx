@@ -14,9 +14,10 @@ const SidebarContext = React.createContext<SidebarContextValue | null>(null)
 
 export function SidebarProvider({ children }: { children: React.ReactNode }) {
   const isMobile = useIsMobile()
-  const [sidebarOpen, setSidebarOpen] = React.useState(!isMobile)
+  const [sidebarOpen, setSidebarOpen] = React.useState(false)
 
   React.useEffect(() => {
+    if (typeof isMobile !== "boolean") return
     setSidebarOpen(!isMobile)
   }, [isMobile])
 

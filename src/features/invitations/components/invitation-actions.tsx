@@ -64,13 +64,13 @@ export default function InvitationActions({
       </DropdownMenuTrigger>
       <DropdownMenuContent align="end" className="w-48">
         <DropdownMenuItem
-          onSelect={() => resendInvitation.mutate({ inviationId: invitationId })}
+          onSelect={() => resendInvitation.mutate({ invitationId })}
         >
           <RotateCcw className="size-4" />
           Resend
         </DropdownMenuItem>
         <DropdownMenuItem
-          onSelect={() => revokeInvitation.mutate({ inviationId: invitationId })}
+          onSelect={() => revokeInvitation.mutate({ invitationId })}
           className="text-destructive"
         >
           <X className="size-4" />

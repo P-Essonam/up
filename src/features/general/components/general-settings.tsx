@@ -33,11 +33,11 @@ export default function GeneralSettings() {
 
   const updateOrganization = useMutation(
     trpc.organization.updateOrganizationName.mutationOptions({
-      onSuccess: async () => {
+      onSuccess: async (_data, variables) => {
+        const trimmedSubmittedValue = variables.name.trim()
         await queryClient.invalidateQueries()
-        const trimmed = name.trim()
-        setName(trimmed)
-        setSavedName(trimmed)
+        setName(trimmedSubmittedValue)
+        setSavedName(trimmedSubmittedValue)
         toast.success("Organization updated.")
       },
       onError: (error) => {
