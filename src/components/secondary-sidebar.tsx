@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { ChevronDown, ChevronsLeft, Plus } from "lucide-react"
+import { ChevronsLeft, Plus } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import { useSidebar } from "@/components/sidebar-context"
 
@@ -46,7 +46,6 @@ export default function SecondarySidebar({
               title="Create"
             >
               <Plus className="size-4" />
-              <ChevronDown className="size-3" />
             </Button>
           )}
         </div>

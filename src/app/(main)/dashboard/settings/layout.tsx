@@ -48,7 +48,7 @@ export default function SettingsLayout({
           })}
         </nav>
       </SecondarySidebar>
-      <div className="flex-1 overflow-auto p-4">{children}</div>
+      <div className="flex-1 p-4 overflow-auto">{children}</div>
     </div>
   )
 }
