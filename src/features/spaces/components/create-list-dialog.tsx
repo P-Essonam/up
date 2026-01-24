@@ -20,6 +20,7 @@ import {
   SelectValue,
 } from "@/components/ui/select"
 import type { Space } from "@/features/spaces/lib/types"
+import type { Id } from "../../../../convex/_generated/dataModel"
 import { cn } from "@/lib/utils"
 
 export type CreateListValues = {
@@ -31,8 +32,8 @@ type CreateListDialogProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
   spaces: Space[]
-  defaultSpaceId?: string | null
-  onCreate: (values: CreateListValues) => void
+  defaultSpaceId?: Id<"spaces"> | null
+  onCreate: (values: CreateListValues) => void | Promise<void>
 }
 
 function getSpaceInitials(name: string) {
@@ -57,15 +58,15 @@ export default function CreateListDialog({
   React.useEffect(() => {
     if (!open) return
     setName("")
-    setSpaceId(defaultSpaceId ?? spaces[0]?.id ?? "")
+    setSpaceId(defaultSpaceId ?? spaces[0]?._id ?? "")
   }, [open, defaultSpaceId, spaces])
 
   const canSubmit = name.trim().length > 0 && spaceId.length > 0
 
-  const handleSubmit = (event: React.FormEvent) => {
+  const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault()
     if (!canSubmit) return
-    onCreate({ name: name.trim(), spaceId })
+    await onCreate({ name: name.trim(), spaceId })
     onOpenChange(false)
   }
 
@@ -98,7 +99,7 @@ export default function CreateListDialog({
               </SelectTrigger>
               <SelectContent>
                 {spaces.map((space) => (
-                  <SelectItem key={space.id} value={space.id}>
+                  <SelectItem key={space._id} value={space._id}>
                     <span
                       className={cn(
                         "flex size-5 items-center justify-center rounded text-[10px] font-bold text-white",

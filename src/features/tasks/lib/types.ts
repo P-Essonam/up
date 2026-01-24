@@ -1,24 +1,12 @@
-export type TaskPriority = "Urgent" | "High" | "Normal" | "Low"
+import type { Doc } from "../../../../convex/_generated/dataModel"
 
-export type TaskAssignee = {
-  id: string
-  name: string
-  initials: string
-  color: string
-}
+export type Task = Doc<"tasks">
+
+export type TaskPriority = "urgent" | "high" | "normal" | "low"
 
 export type TaskStatus = {
   id: string
   name: string
   badgeClassName?: string
   columnClassName?: string
-}
-
-export type TaskItem = {
-  id: string
-  name: string
-  statusId: string
-  assignees: TaskAssignee[]
-  dueDate?: string
-  priority?: TaskPriority
 }

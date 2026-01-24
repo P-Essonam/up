@@ -5,25 +5,55 @@ import { ChevronDown, Plus } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
-import { defaultStatuses, defaultTasks } from "@/features/tasks/lib/data"
-import type { TaskItem, TaskStatus } from "@/features/tasks/lib/types"
+import { defaultStatuses } from "@/features/tasks/lib/data"
+import type { Task, TaskStatus } from "@/features/tasks/lib/types"
+import type { Id } from "../../../../convex/_generated/dataModel"
 
 type TaskListViewProps = {
+  tasks: Task[]
+  listId: Id<"lists">
+  onReorderTasks: (status: string, orderedIds: Id<"tasks">[]) => Promise<void>
   statuses?: TaskStatus[]
-  tasks?: TaskItem[]
 }
 
-export default function TaskListView({ statuses = defaultStatuses, tasks = defaultTasks }: TaskListViewProps) {
+function formatDate(timestamp: number | undefined): string {
+  if (!timestamp) return "-"
+  const date = new Date(timestamp)
+  return date.toLocaleDateString("en-US", { month: "short", day: "numeric" })
+}
+
+function formatPriority(priority: string | undefined): string {
+  if (!priority) return "-"
+  return priority.charAt(0).toUpperCase() + priority.slice(1)
+}
+
+export default function TaskListView({
+  tasks,
+  listId,
+  onReorderTasks,
+  statuses = defaultStatuses,
+}: TaskListViewProps) {
   const [collapsed, setCollapsed] = React.useState<Record<string, boolean>>({})
 
   const toggleStatus = (statusId: string) => {
     setCollapsed((prev) => ({ ...prev, [statusId]: !prev[statusId] }))
   }
 
+  // Group and sort tasks by status and sortOrder
+  const tasksByStatus = React.useMemo(() => {
+    const grouped: Record<string, Task[]> = {}
+    for (const status of statuses) {
+      grouped[status.id] = tasks
+        .filter((task) => task.status === status.id)
+        .sort((a, b) => a.sortOrder - b.sortOrder)
+    }
+    return grouped
+  }, [tasks, statuses])
+
   return (
     <div className="flex flex-col gap-4">
       {statuses.map((status) => {
-        const statusTasks = tasks.filter((task) => task.statusId === status.id)
+        const statusTasks = tasksByStatus[status.id] ?? []
         const isCollapsed = collapsed[status.id] ?? false
 
         return (
@@ -55,38 +85,27 @@ export default function TaskListView({ statuses = defaultStatuses, tasks = defau
 
                 {statusTasks.map((task) => (
                   <div
-                    key={task.id}
+                    key={task._id}
                     className="grid grid-cols-12 items-center gap-2 border-b border-border/60 px-2 py-2 text-sm"
                   >
                     <div className="col-span-5 flex items-center gap-2">
                       <span className="size-3 rounded-full border border-muted-foreground/30" />
-                      <span className="truncate">{task.name}</span>
+                      <span className="truncate">{task.title}</span>
                     </div>
                     <div className="col-span-3 flex items-center gap-1">
-                      {task.assignees.length > 0 ? (
-                        task.assignees.map((assignee) => (
-                          <span
-                            key={assignee.id}
-                            className={cn(
-                              "flex size-6 items-center justify-center rounded-full text-[10px] font-semibold text-white",
-                              assignee.color
-                            )}
-                            title={assignee.name}
-                          >
-                            {assignee.initials}
-                          </span>
-                        ))
+                      {task.assigneeId ? (
+                        <span className="text-xs text-muted-foreground">{task.assigneeId}</span>
                       ) : (
                         <span className="text-xs text-muted-foreground">Unassigned</span>
                       )}
                     </div>
                     <div className="col-span-2 text-sm text-muted-foreground">
-                      {task.dueDate ?? "-"}
+                      {formatDate(task.dueDate)}
                     </div>
                     <div className="col-span-2">
                       {task.priority ? (
                         <Badge variant="outline" className="border-muted-foreground/30 text-xs text-muted-foreground">
-                          {task.priority}
+                          {formatPriority(task.priority)}
                         </Badge>
                       ) : (
                         <span className="text-xs text-muted-foreground">-</span>

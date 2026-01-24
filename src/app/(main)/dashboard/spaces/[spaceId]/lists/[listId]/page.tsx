@@ -2,10 +2,12 @@
 
 import * as React from "react"
 import { useParams } from "next/navigation"
-import { LayoutGrid, ListChecks, Sparkles } from "lucide-react"
+import { useQuery, useMutation } from "convex/react"
+import { LayoutGrid, ListChecks, Loader2, Sparkles } from "lucide-react"
+import { api } from "../../../../../../../../convex/_generated/api"
+import type { Id } from "../../../../../../../../convex/_generated/dataModel"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
-import { initialSpaces } from "@/features/spaces/lib/data"
 import TaskListView from "@/features/tasks/components/task-list-view"
 import TaskBoardView from "@/features/tasks/components/task-board-view"
 
@@ -19,28 +21,57 @@ export default function ListPage() {
   const params = useParams<{ spaceId: string; listId: string }>()
   const [view, setView] = React.useState<ViewMode>("list")
 
-  const spaceId = params?.spaceId ?? ""
-  const listId = params?.listId ?? ""
+  const listId = params?.listId as Id<"lists"> | undefined
+  const spaceId = params?.spaceId as Id<"spaces"> | undefined
+
+  // Fetch spaces to get space/list names
+  const spacesData = useQuery(api.spaces.listWithLists)
+
+  // Fetch tasks for current list
+  const tasks = useQuery(
+    api.tasks.listAll,
+    listId ? { listId } : "skip"
+  )
+
+  // Reorder mutation
+  const reorderTasks = useMutation(api.tasks.reorder)
+
+  // Find space and list info
   const space = React.useMemo(
-    () => initialSpaces.find((item) => item.id === spaceId),
-    [spaceId]
+    () => spacesData?.find((s) => s._id === spaceId),
+    [spacesData, spaceId]
   )
   const list = React.useMemo(
-    () => space?.lists.find((item) => item.id === listId),
+    () => space?.lists.find((l) => l._id === listId),
     [space, listId]
   )
 
-  const spaceName = space?.name ?? spaceId
-  const listName = list?.name ?? listId
-  const spaceInitial = spaceName ? spaceName.charAt(0).toUpperCase() : "S"
+  const spaceName = space?.name ?? "Space"
+  const listName = list?.name ?? "List"
+  const spaceInitial = spaceName.charAt(0).toUpperCase()
+
+  const handleReorderTasks = React.useCallback(
+    async (status: string, orderedIds: Id<"tasks">[]) => {
+      if (!listId) return
+      await reorderTasks({ listId, status, orderedIds })
+    },
+    [listId, reorderTasks]
+  )
+
+  const isLoading = spacesData === undefined || tasks === undefined
 
   return (
-    <div className="flex flex-col">
-      <header className="flex flex-col bg-background px-6 pt-3">
-        <div className="flex items-center justify-between mb-4">
+    <div className="flex h-full flex-col">
+      <header className="flex shrink-0 flex-col bg-background px-6 pt-3">
+        <div className="mb-4 flex items-center justify-between">
           <div className="flex items-center gap-2">
             <Button variant="ghost" size="sm" className="h-7 gap-2 px-1 hover:bg-transparent">
-              <span className="flex size-5 items-center justify-center rounded bg-muted text-[10px] font-semibold text-foreground">
+              <span
+                className={cn(
+                  "flex size-5 items-center justify-center rounded text-[10px] font-semibold text-white",
+                  space?.color || "bg-muted text-foreground"
+                )}
+              >
                 {spaceInitial}
               </span>
               <span className="text-sm font-medium">{spaceName}</span>
@@ -83,11 +114,23 @@ export default function ListPage() {
         </nav>
       </header>
 
-      <div className="p-6 mt-4 h-full overflow-hidden">
-        {view === "list" ? (
-          <TaskListView />
+      <div className="mt-4 flex-1 overflow-hidden p-6">
+        {isLoading ? (
+          <div className="flex h-full items-center justify-center">
+            <Loader2 className="size-6 animate-spin text-muted-foreground" />
+          </div>
+        ) : view === "list" ? (
+          <TaskListView
+            tasks={tasks ?? []}
+            listId={listId!}
+            onReorderTasks={handleReorderTasks}
+          />
         ) : (
-          <TaskBoardView />
+          <TaskBoardView
+            tasks={tasks ?? []}
+            listId={listId!}
+            onReorderTasks={handleReorderTasks}
+          />
         )}
       </div>
     </div>

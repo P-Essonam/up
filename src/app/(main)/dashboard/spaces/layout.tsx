@@ -1,63 +1,28 @@
 "use client"
 
-import * as React from "react"
+import { useState } from "react"
 import { ChevronsLeft, Plus } from "lucide-react"
+import type { Id } from "../../../../../convex/_generated/dataModel"
 import { Button } from "@/components/ui/button"
+import { Skeleton } from "@/components/ui/skeleton"
 import { useSidebar } from "@/components/sidebar-context"
-import CreateListDialog, {
-  type CreateListValues,
-} from "@/features/spaces/components/create-list-dialog"
-import CreateSpaceDialog, {
-  type CreateSpaceValues,
-} from "@/features/spaces/components/create-space-dialog"
+import { useSpaces } from "@/features/spaces/hooks/use-spaces"
+import CreateListDialog from "@/features/spaces/components/create-list-dialog"
+import CreateSpaceDialog from "@/features/spaces/components/create-space-dialog"
 import SpacesSidebar from "@/features/spaces/components/spaces-sidebar"
-import { initialSpaces } from "@/features/spaces/lib/data"
-import type { Space } from "@/features/spaces/lib/types"
 
-export default function SpacesLayout({
-  children,
-}: {
-  children: React.ReactNode
-}) {
-  const [spaces, setSpaces] = React.useState<Space[]>(() => initialSpaces)
-  const [createOpen, setCreateOpen] = React.useState(false)
-  const [createListOpen, setCreateListOpen] = React.useState(false)
-  const [createListSpaceId, setCreateListSpaceId] = React.useState<string | null>(null)
+export default function SpacesLayout({ children }: { children: React.ReactNode }) {
   const { sidebarOpen, closeSidebar } = useSidebar()
+  const { spaces, isLoading, createSpaceWithDefaults, createList } = useSpaces()
 
-  const handleCreateSpace = React.useCallback((values: CreateSpaceValues) => {
-    setSpaces((prev) => [
-      ...prev,
-      {
-        id: `space-${Math.random().toString(36).slice(2, 9)}`,
-        name: values.name,
-        description: values.description,
-        color: values.color,
-        icon: values.icon,
-        lists: [],
-        isOpen: true,
-      },
-    ])
-  }, [])
+ 
+  const [createSpaceOpen, setCreateSpaceOpen] = useState(false)
+  const [createListOpen, setCreateListOpen] = useState(false)
+  const [createListSpaceId, setCreateListSpaceId] = useState<Id<"spaces"> | null>(null)
 
-  const handleCreateList = React.useCallback((values: CreateListValues) => {
-    setSpaces((prev) =>
-      prev.map((space) =>
-        space.id === values.spaceId
-          ? {
-              ...space,
-              lists: [
-                ...space.lists,
-                {
-                  id: `list-${Math.random().toString(36).slice(2, 9)}`,
-                  name: values.name,
-                },
-              ],
-            }
-          : space
-      )
-    )
-  }, [])
+  const handleCreateList = async (values: { name: string; spaceId: string }) => {
+    await createList(values.spaceId as Id<"spaces">, values.name)
+  }
 
   return (
     <div className="flex flex-1 overflow-hidden">
@@ -70,17 +35,16 @@ export default function SpacesLayout({
                 variant="ghost"
                 size="sm"
                 onClick={closeSidebar}
-                className="h-8 border-none bg-transparent px-2 text-muted-foreground transition-opacity hover:bg-muted xl:opacity-0 xl:group-hover/secondary:opacity-100"
+                className=" transition-opacity hover:bg-muted xl:opacity-0 xl:group-hover/secondary:opacity-100"
                 title="Close sidebar"
                 aria-label="Close sidebar"
               >
                 <ChevronsLeft className="size-4" />
               </Button>
               <Button
-                variant="outline"
                 size="sm"
-                onClick={() => setCreateOpen(true)}
-                className="h-8 gap-1 rounded-md border-border/70 bg-background/60 px-2 text-muted-foreground hover:bg-muted"
+                onClick={() => setCreateSpaceOpen(true)}
+                className=""
                 title="Create"
               >
                 <Plus className="size-4" />
@@ -88,22 +52,51 @@ export default function SpacesLayout({
             </div>
           </div>
           <div className="flex-1 overflow-auto p-3">
-            <SpacesSidebar
-              spaces={spaces}
-              setSpaces={setSpaces}
-              onCreateClick={() => setCreateOpen(true)}
-              onCreateList={(spaceId) => {
-                setCreateListSpaceId(spaceId)
-                setCreateListOpen(true)
-              }}
-            />
+            {isLoading ? (
+              <div className="flex flex-col gap-4 p-2">
+                {[1, 2, 3, 4, 5, 6, 7].map((i) => (
+                  <div key={i} className="flex flex-col gap-2">
+                    {/* Space Header */}
+                    <div className="flex items-center gap-2 px-2">
+                      <Skeleton className="size-6 rounded-md" />
+                      <Skeleton className="h-4 w-24" />
+                    </div>
+                    {/* Space Lists */}
+                    <div className="ml-4 flex flex-col gap-2 border-l border-border pl-2">
+                      <div className="flex items-center gap-2 px-2">
+                        <Skeleton className="size-4 rounded-sm" />
+                        <Skeleton className="h-3 w-20" />
+                      </div>
+                      <div className="flex items-center gap-2 px-2">
+                        <Skeleton className="size-4 rounded-sm" />
+                        <Skeleton className="h-3 w-16" />
+                      </div>
+                    </div>
+                  </div>
+                ))}
+                {/* New Space Button */}
+                <div className="mt-2 flex items-center gap-2 px-2 opacity-50">
+                  <Skeleton className="size-4 rounded-sm" />
+                  <Skeleton className="h-4 w-24" />
+                </div>
+              </div>
+            ) : (
+              <SpacesSidebar
+                onCreateSpace={() => setCreateSpaceOpen(true)}
+                onCreateList={(spaceId) => {
+                  setCreateListSpaceId(spaceId)
+                  setCreateListOpen(true)
+                }}
+              />
+            )}
           </div>
         </div>
       )}
+
       <CreateSpaceDialog
-        open={createOpen}
-        onOpenChange={setCreateOpen}
-        onCreate={handleCreateSpace}
+        open={createSpaceOpen}
+        onOpenChange={setCreateSpaceOpen}
+        onCreate={createSpaceWithDefaults}
       />
       <CreateListDialog
         open={createListOpen}
@@ -112,7 +105,7 @@ export default function SpacesLayout({
         defaultSpaceId={createListSpaceId}
         onCreate={handleCreateList}
       />
-      <div className="flex-1 overflow-auto p-4">{children}</div>
+      <div className="flex-1 overflow-auto">{children}</div>
     </div>
   )
 }

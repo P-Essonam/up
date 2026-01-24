@@ -39,7 +39,7 @@ export default function SettingsLayout({
               variant="ghost"
               size="sm"
               onClick={closeSidebar}
-              className="h-8 border-none bg-transparent px-2 text-muted-foreground transition-opacity hover:bg-muted xl:opacity-0 xl:group-hover/secondary:opacity-100"
+              className=" transition-opacity hover:bg-muted xl:opacity-0 xl:group-hover/secondary:opacity-100"
               title="Close sidebar"
               aria-label="Close sidebar"
             >
