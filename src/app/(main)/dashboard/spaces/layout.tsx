@@ -1,7 +1,9 @@
 "use client"
 
 import * as React from "react"
-import SecondarySidebar from "@/components/secondary-sidebar"
+import { ChevronsLeft, Plus } from "lucide-react"
+import { Button } from "@/components/ui/button"
+import { useSidebar } from "@/components/sidebar-context"
 import CreateListDialog, {
   type CreateListValues,
 } from "@/features/spaces/components/create-list-dialog"
@@ -21,6 +23,7 @@ export default function SpacesLayout({
   const [createOpen, setCreateOpen] = React.useState(false)
   const [createListOpen, setCreateListOpen] = React.useState(false)
   const [createListSpaceId, setCreateListSpaceId] = React.useState<string | null>(null)
+  const { sidebarOpen, closeSidebar } = useSidebar()
 
   const handleCreateSpace = React.useCallback((values: CreateSpaceValues) => {
     setSpaces((prev) => [
@@ -58,17 +61,45 @@ export default function SpacesLayout({
 
   return (
     <div className="flex flex-1 overflow-hidden">
-      <SecondarySidebar title="Spaces" onCreateClick={() => setCreateOpen(true)}>
-        <SpacesSidebar
-          spaces={spaces}
-          setSpaces={setSpaces}
-          onCreateClick={() => setCreateOpen(true)}
-          onCreateList={(spaceId) => {
-            setCreateListSpaceId(spaceId)
-            setCreateListOpen(true)
-          }}
-        />
-      </SecondarySidebar>
+      {sidebarOpen && (
+        <div className="group/secondary flex w-72 shrink-0 flex-col border-r bg-muted/30">
+          <div className="flex items-center justify-between border-b border-border/70 px-4 py-3">
+            <h2 className="text-sm font-semibold">Spaces</h2>
+            <div className="flex items-center gap-1">
+              <Button
+                variant="ghost"
+                size="sm"
+                onClick={closeSidebar}
+                className="h-8 border-none bg-transparent px-2 text-muted-foreground transition-opacity hover:bg-muted xl:opacity-0 xl:group-hover/secondary:opacity-100"
+                title="Close sidebar"
+                aria-label="Close sidebar"
+              >
+                <ChevronsLeft className="size-4" />
+              </Button>
+              <Button
+                variant="outline"
+                size="sm"
+                onClick={() => setCreateOpen(true)}
+                className="h-8 gap-1 rounded-md border-border/70 bg-background/60 px-2 text-muted-foreground hover:bg-muted"
+                title="Create"
+              >
+                <Plus className="size-4" />
+              </Button>
+            </div>
+          </div>
+          <div className="flex-1 overflow-auto p-3">
+            <SpacesSidebar
+              spaces={spaces}
+              setSpaces={setSpaces}
+              onCreateClick={() => setCreateOpen(true)}
+              onCreateList={(spaceId) => {
+                setCreateListSpaceId(spaceId)
+                setCreateListOpen(true)
+              }}
+            />
+          </div>
+        </div>
+      )}
       <CreateSpaceDialog
         open={createOpen}
         onOpenChange={setCreateOpen}

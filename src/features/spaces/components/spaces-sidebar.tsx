@@ -9,6 +9,7 @@ import {
   type DropResult,
 } from "@hello-pangea/dnd"
 import { ChevronRight, ListChecks, MoreHorizontal, Palette, Pencil, Plus, Trash2 } from "lucide-react"
+import { usePathname, useRouter } from "next/navigation"
 import { Button } from "@/components/ui/button"
 import { Collapsible, CollapsibleContent } from "@/components/ui/collapsible"
 import {
@@ -82,9 +83,19 @@ export default function SpacesSidebar({
   onCreateClick,
   onCreateList,
 }: SpacesSidebarProps) {
+  const router = useRouter()
+  const pathname = usePathname()
   const [isDragging, setIsDragging] = React.useState(false)
   const [dragType, setDragType] = React.useState<string | null>(null)
   const [draggedId, setDraggedId] = React.useState<string | null>(null)
+  const activeSpaceId = React.useMemo(() => {
+    const match = pathname?.match(/\/spaces\/([^/]+)/)
+    return match?.[1] ?? null
+  }, [pathname])
+  const activeListId = React.useMemo(() => {
+    const match = pathname?.match(/\/lists\/([^/]+)/)
+    return match?.[1] ?? null
+  }, [pathname])
 
   const toggleSpace = (id: string) => {
     setSpaces((prev) =>
@@ -128,6 +139,13 @@ export default function SpacesSidebar({
       )
     )
   }
+
+  const handleSelectList = React.useCallback(
+    (spaceId: string, listId: string) => {
+      router.push(`/dashboard/spaces/${spaceId}/lists/${listId}`)
+    },
+    [router]
+  )
 
   const handleDragStart = (start: DragStart) => {
     setIsDragging(true)
@@ -188,6 +206,9 @@ export default function SpacesSidebar({
                   onAddList={() => onCreateList?.(space.id)}
                   isDragged={draggedId === space.id}
                   isDraggingList={isDragging && dragType === "LIST"}
+                  activeSpaceId={activeSpaceId}
+                  activeListId={activeListId}
+                  onSelectList={handleSelectList}
                 />
               ))}
               {provided.placeholder}
@@ -219,6 +240,9 @@ function SpaceRow({
   onAddList,
   isDragged,
   isDraggingList,
+  activeSpaceId,
+  activeListId,
+  onSelectList,
 }: {
   space: Space
   index: number
@@ -230,8 +254,12 @@ function SpaceRow({
   onAddList: () => void
   isDragged: boolean
   isDraggingList: boolean
+  activeSpaceId: string | null
+  activeListId: string | null
+  onSelectList: (spaceId: string, listId: string) => void
 }) {
   const isOpen = space.isOpen ?? true
+  const isActiveSpace = activeSpaceId === space.id
 
   return (
     <Draggable draggableId={space.id} index={index}>
@@ -293,6 +321,8 @@ function SpaceRow({
                           index={listIndex}
                           onRename={() => onRenameList(list.id)}
                           onDelete={() => onDeleteList(list.id)}
+                          onSelect={() => onSelectList(space.id, list.id)}
+                          active={isActiveSpace && activeListId === list.id}
                         />
                       ))}
                     </CollapsibleContent>
@@ -316,11 +346,15 @@ function ListRow({
   index,
   onRename,
   onDelete,
+  onSelect,
+  active,
 }: {
   item: SpaceList
   index: number
   onRename: () => void
   onDelete: () => void
+  onSelect: () => void
+  active: boolean
 }) {
   return (
     <Draggable draggableId={item.id} index={index}>
@@ -333,6 +367,8 @@ function ListRow({
           <SecondarySidebarItem
             label={item.name}
             count={item.count}
+            active={active}
+            onClick={onSelect}
             className={cn("cursor-pointer", snapshot.isDragging && "bg-muted opacity-80")}
             leading={<ListChecks className="size-4 text-muted-foreground" />}
             actions={<ListMenu onRename={onRename} onDelete={onDelete} />}
