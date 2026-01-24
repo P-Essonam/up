@@ -2,32 +2,24 @@
 
 import { useEffect } from "react"
 import { useRouter } from "next/navigation"
-import { useQuery } from "convex/react"
-import { Layers, Loader2 } from "lucide-react"
-import { api } from "../../../../../convex/_generated/api"
+import { usePreloadedQuery } from "convex/react"
+import type { Preloaded } from "convex/react"
+import { Layers } from "lucide-react"
+import { api } from "../../../../convex/_generated/api"
 
-export default function SpacesPage() {
+type WorkspacePageProps = {
+  preloadedSpaces: Preloaded<typeof api.spaces.listWithLists>
+}
+
+export default function WorkspacePage({ preloadedSpaces }: WorkspacePageProps) {
   const router = useRouter()
-  const spacesData = useQuery(api.spaces.listWithLists)
+  const spacesData = usePreloadedQuery(preloadedSpaces)
 
   useEffect(() => {
-    if (spacesData === undefined) return
-
-    const firstSpace = spacesData[0]
-    const firstList = firstSpace?.lists?.[0]
-
-    if (firstSpace && firstList) {
-      router.replace(`/dashboard/spaces/${firstSpace._id}/lists/${firstList._id}`)
+    if (spacesData.length > 0 && spacesData[0].lists.length > 0) {
+      router.replace(`/dashboard/lists/${spacesData[0].lists[0]._id}`)
     }
   }, [spacesData, router])
-
-  if (spacesData === undefined) {
-    return (
-      <div className="flex h-full items-center justify-center p-4">
-        <Loader2 className="size-5 animate-spin text-muted-foreground" />
-      </div>
-    )
-  }
 
   if (spacesData.length === 0) {
     return (

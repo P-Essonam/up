@@ -50,8 +50,8 @@ export const create = mutation({
   args: {
     name: v.string(),
     description: v.optional(v.string()),
-    color: v.optional(v.string()),
-    icon: v.optional(v.string()),
+    color: v.string(),
+    icon: v.string(),
   },
   handler: async (ctx, args) => {
     const org_id = await getOrganizationId(ctx)
@@ -85,10 +85,10 @@ export const create = mutation({
 export const update = mutation({
   args: {
     id: v.id("spaces"),
-    name: v.optional(v.string()),
+    name: v.string(),
     description: v.optional(v.string()),
-    color: v.optional(v.string()),
-    icon: v.optional(v.string()),
+    color: v.string(),
+    icon: v.string(),
   },
   handler: async (ctx, args) => {
     const org_id = await getOrganizationId(ctx)
@@ -108,13 +108,13 @@ export const update = mutation({
       })
     }
 
-    const updates: Record<string, unknown> = { updatedAt: Date.now() }
-    if (args.name !== undefined) updates.name = args.name
-    if (args.description !== undefined) updates.description = args.description
-    if (args.color !== undefined) updates.color = args.color
-    if (args.icon !== undefined) updates.icon = args.icon
-
-    return ctx.db.patch(args.id, updates)
+    return ctx.db.patch(args.id, {
+      name: args.name,
+      description: args.description,
+      color: args.color,
+      icon: args.icon,
+      updatedAt: Date.now(),
+    })
   },
 })
 

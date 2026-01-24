@@ -55,7 +55,11 @@ export function SecondarySidebarItem({
             </span>
           )}
           {actions && (
-            <div className="opacity-0 transition-opacity group-hover:opacity-100">
+            <div
+              className="opacity-0 transition-opacity group-hover:opacity-100"
+              onClick={(e) => e.stopPropagation()}
+              onPointerDown={(e) => e.stopPropagation()}
+            >
               {actions}
             </div>
           )}

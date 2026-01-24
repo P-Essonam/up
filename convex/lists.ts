@@ -40,8 +40,6 @@ export const create = mutation({
   args: {
     spaceId: v.id("spaces"),
     name: v.string(),
-    description: v.optional(v.string()),
-    color: v.optional(v.string()),
   },
   handler: async (ctx, args) => {
     const org_id = await getOrganizationId(ctx)
@@ -59,8 +57,6 @@ export const create = mutation({
     return ctx.db.insert("lists", {
       name: args.name,
       spaceId: args.spaceId,
-      description: args.description,
-      color: args.color,
       organizationId: org_id,
       sortOrder,
       createdAt: now,
@@ -73,9 +69,8 @@ export const create = mutation({
 export const update = mutation({
   args: {
     id: v.id("lists"),
-    name: v.optional(v.string()),
-    description: v.optional(v.string()),
-    color: v.optional(v.string()),
+    name: v.string(),
+    spaceId: v.id("spaces"),
   },
   handler: async (ctx, args) => {
     const org_id = await getOrganizationId(ctx)
@@ -95,12 +90,11 @@ export const update = mutation({
       })
     }
 
-    const updates: Record<string, unknown> = { updatedAt: Date.now() }
-    if (args.name !== undefined) updates.name = args.name
-    if (args.description !== undefined) updates.description = args.description
-    if (args.color !== undefined) updates.color = args.color
-
-    return ctx.db.patch(args.id, updates)
+    return ctx.db.patch(args.id, {
+      name: args.name,
+      spaceId: args.spaceId,
+      updatedAt: Date.now(),
+    })
   },
 })
 

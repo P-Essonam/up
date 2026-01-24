@@ -19,54 +19,58 @@ import {
   SelectTrigger,
   SelectValue,
 } from "@/components/ui/select"
-import type { Space } from "@/features/spaces/lib/types"
-import type { Id } from "../../../../convex/_generated/dataModel"
+import type { Doc, Id } from "../../../../convex/_generated/dataModel"
 import { cn } from "@/lib/utils"
+import { getIcon } from "@/components/icon-picker"
+import type { ListFormValues } from "../lib/types"
+import { useSpaces } from "../hooks/use-spaces"
 
-export type CreateListValues = {
-  name: string
-  spaceId: string
-}
-
-type CreateListDialogProps = {
+type ListDialogProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
-  spaces: Space[]
+  spaces: Doc<"spaces">[]
   defaultSpaceId?: Id<"spaces"> | null
-  onCreate: (values: CreateListValues) => void | Promise<void>
+  initialValues?: ListFormValues
+  mode: "create" | "edit"
+  listId?: Id<"lists">
 }
 
-function getSpaceInitials(name: string) {
-  return name
-    .split(" ")
-    .map((word) => word[0])
-    .join("")
-    .slice(0, 1)
-    .toUpperCase()
-}
-
-export default function CreateListDialog({
+export default function ListDialog({
   open,
   onOpenChange,
   spaces,
   defaultSpaceId,
-  onCreate,
-}: CreateListDialogProps) {
+  initialValues,
+  mode = "create",
+  listId,
+}: ListDialogProps) {
+  const { createList, updateList } = useSpaces()
   const [name, setName] = React.useState("")
-  const [spaceId, setSpaceId] = React.useState("")
+  const [spaceId, setSpaceId] = React.useState<Id<"spaces"> | "">("")
 
+  const isEdit = mode === "edit"
+
+  // Populate form when dialog opens
   React.useEffect(() => {
-    if (!open) return
-    setName("")
-    setSpaceId(defaultSpaceId ?? spaces[0]?._id ?? "")
-  }, [open, defaultSpaceId, spaces])
+    if (open) {
+      setName(initialValues?.name ?? "")
+      setSpaceId(initialValues?.spaceId ?? defaultSpaceId ?? spaces[0]?._id ?? "")
+    }
+  }, [open, initialValues, defaultSpaceId, spaces])
 
   const canSubmit = name.trim().length > 0 && spaceId.length > 0
 
   const handleSubmit = async (event: React.FormEvent) => {
     event.preventDefault()
     if (!canSubmit) return
-    await onCreate({ name: name.trim(), spaceId })
+    const values = { name: name.trim(), spaceId: spaceId as Id<"spaces"> } satisfies ListFormValues
+
+    if (isEdit) {
+      if (!listId) return
+      await updateList(listId, values)
+    } else {
+      await createList(values.spaceId, values.name)
+    }
     onOpenChange(false)
   }
 
@@ -74,9 +78,11 @@ export default function CreateListDialog({
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-xl">
         <DialogHeader>
-          <DialogTitle>Create List</DialogTitle>
+          <DialogTitle>{isEdit ? "Edit List" : "Create List"}</DialogTitle>
           <DialogDescription>
-            All Lists are located within a Space. Lists can house any type of task.
+            {isEdit
+              ? "Update the list name and location."
+              : "All Lists are located within a Space. Lists can house any type of task."}
           </DialogDescription>
         </DialogHeader>
 
@@ -93,31 +99,36 @@ export default function CreateListDialog({
 
           <div className="space-y-2">
             <Label className="text-sm font-semibold text-foreground">Space (location)</Label>
-            <Select value={spaceId} onValueChange={setSpaceId}>
+            <Select value={spaceId} onValueChange={(value) => setSpaceId(value as Id<"spaces">)}>
               <SelectTrigger className="w-full">
                 <SelectValue placeholder="Select a space" />
               </SelectTrigger>
-              <SelectContent>
-                {spaces.map((space) => (
-                  <SelectItem key={space._id} value={space._id}>
-                    <span
-                      className={cn(
-                        "flex size-5 items-center justify-center rounded text-[10px] font-bold text-white",
-                        space.color
-                      )}
-                    >
-                      {getSpaceInitials(space.name)}
-                    </span>
-                    {space.name}
-                  </SelectItem>
-                ))}
+              <SelectContent side="top">
+                {spaces.map((space) => {
+                  const SpaceIcon = getIcon(space.icon)
+                  return (
+                    <SelectItem key={space._id} value={space._id}>
+                      <div className="flex items-center gap-2">
+                        <span
+                          className={cn(
+                            "flex size-5 items-center justify-center rounded-sm",
+                            space.color
+                          )}
+                        >
+                          <SpaceIcon className="size-3 text-white" />
+                        </span>
+                        {space.name}
+                      </div>
+                    </SelectItem>
+                  )
+                })}
               </SelectContent>
             </Select>
           </div>
 
           <DialogFooter>
             <Button type="submit" disabled={!canSubmit} size="lg">
-              Create
+              {isEdit ? "Save" : "Create"}
             </Button>
           </DialogFooter>
         </form>

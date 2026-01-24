@@ -87,15 +87,6 @@ export const create = mutation({
     const org_id = await getOrganizationId(ctx)
     const now = Date.now()
 
-    // Get list for spaceId denormalization
-    const list = await ctx.db.get(args.listId)
-    if (!list) {
-      throw new ConvexError({
-        code: "NOT_FOUND",
-        message: "List not found",
-      })
-    }
-
     // Get the highest sortOrder for "todo" status to place new task at the end
     const lastTask = await ctx.db
       .query("tasks")
@@ -111,7 +102,6 @@ export const create = mutation({
       title: args.title,
       description: args.description,
       listId: args.listId,
-      spaceId: list.spaceId,
       status: STATUSES.TODO, // Default status
       sortOrder,
       priority: args.priority,

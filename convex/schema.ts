@@ -13,8 +13,8 @@ export default defineSchema({
     name: v.string(),
     description: v.optional(v.string()),
     organizationId: v.string(),
-    color: v.optional(v.string()),
-    icon: v.optional(v.string()),
+    color: v.string(),
+    icon: v.string(),
     sortOrder: v.number(),
     createdAt: v.number(),
     updatedAt: v.number(),
@@ -26,8 +26,6 @@ export default defineSchema({
   lists: defineTable({
     name: v.string(),
     spaceId: v.id("spaces"),
-    description: v.optional(v.string()),
-    color: v.optional(v.string()),
     sortOrder: v.number(),
     organizationId: v.string(),
     createdAt: v.number(),
@@ -41,7 +39,6 @@ export default defineSchema({
     title: v.string(),
     description: v.optional(v.string()),
     listId: v.id("lists"),
-    spaceId: v.id("spaces"), // Denormalized for faster queries
     status: v.string(), // Predefined status: "todo", "in-progress", "complete"
     sortOrder: v.number(), // Order within status column
     priority: v.optional(

@@ -4,7 +4,6 @@ import * as React from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import {
-  Home,
   Layers,
   Bot,
   Calendar,
@@ -18,8 +17,7 @@ import { cn } from "@/lib/utils"
 import { SidebarProvider, useSidebar } from "@/components/sidebar-context"
 
 const navItems = [
-  { title: "Home", url: "/dashboard", icon: Home },
-  { title: "Spaces", url: "/dashboard/spaces", icon: Layers },
+  { title: "Spaces", url: "/dashboard", icon: Layers },
   { title: "Chat", url: "/dashboard/chat", icon: Calendar },
   { title: "AI", url: "/dashboard/ai", icon: Bot },
   { title: "Settings", url: "/dashboard/settings", icon: Settings },

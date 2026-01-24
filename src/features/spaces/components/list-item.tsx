@@ -3,30 +3,31 @@
 import { useState } from "react"
 import { Draggable } from "@hello-pangea/dnd"
 import { ListChecks } from "lucide-react"
+import { useRouter } from "next/navigation"
 import { cn } from "@/lib/utils"
-import type { SpaceList } from "../lib/types"
+import type { Doc } from "../../../../convex/_generated/dataModel"
+import { useSpaces } from "../hooks/use-spaces"
 import { SecondarySidebarItem } from "./secondary-sidebar-item"
 import { ItemMenu } from "./item-menu"
-import { DeleteConfirmDialog } from "./delete-confirm-dialog"
+import { DeleteConfirmDialog } from "../../../components/delete-confirm-dialog"
+import ListDialog from "./create-list-dialog"
 
 type ListItemProps = {
-  list: SpaceList
+  list: Doc<"lists">
   index: number
   active: boolean
-  onSelect: () => void
-  onRename: () => void
-  onDelete: () => void
 }
 
-export function ListItem({
-  list,
-  index,
-  active,
-  onSelect,
-  onRename,
-  onDelete,
-}: ListItemProps) {
+export function ListItem({ list, index, active }: ListItemProps) {
+  const router = useRouter()
+  const { spaces, deleteList } = useSpaces()
+  
+  const [editOpen, setEditOpen] = useState(false)
   const [deleteOpen, setDeleteOpen] = useState(false)
+
+  const handleSelect = () => {
+    router.push(`/dashboard/lists/${list._id}`)
+  }
 
   return (
     <>
@@ -40,12 +41,12 @@ export function ListItem({
             <SecondarySidebarItem
               label={list.name}
               active={active}
-              onClick={onSelect}
+              onClick={handleSelect}
               className={cn("cursor-pointer", snapshot.isDragging && "bg-muted opacity-80")}
               leading={<ListChecks className="size-4 text-muted-foreground" />}
               actions={
                 <ItemMenu
-                  onRename={onRename}
+                  onRename={() => setEditOpen(true)}
                   onDelete={() => setDeleteOpen(true)}
                 />
               }
@@ -54,13 +55,22 @@ export function ListItem({
         )}
       </Draggable>
 
+      <ListDialog
+        open={editOpen}
+        onOpenChange={setEditOpen}
+        spaces={spaces}
+        mode="edit"
+        listId={list._id}
+        initialValues={{ name: list.name, spaceId: list.spaceId }}
+      />
+
       <DeleteConfirmDialog
         open={deleteOpen}
         onOpenChange={setDeleteOpen}
         title="Delete list"
         description="This will permanently delete this list and all its tasks. This action cannot be undone."
-        onConfirm={() => {
-          onDelete()
+        onConfirm={async () => {
+          await deleteList(list._id)
           setDeleteOpen(false)
         }}
       />

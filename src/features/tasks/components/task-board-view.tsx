@@ -9,12 +9,19 @@ import { cn } from "@/lib/utils"
 import { defaultStatuses } from "@/features/tasks/lib/data"
 import type { Task, TaskStatus } from "@/features/tasks/lib/types"
 import type { Id } from "../../../../convex/_generated/dataModel"
+import { InfiniteScroll } from "@/components/infinite-scroll"
+
+type PaginationStatus = "LoadingFirstPage" | "CanLoadMore" | "LoadingMore" | "Exhausted"
 
 type TaskBoardViewProps = {
   tasks: Task[]
   listId: Id<"lists">
-  onReorderTasks: (status: string, orderedIds: Id<"tasks">[]) => Promise<void>
+  onReorderTasks: (status: string, orderedIds: Id<"tasks">[]) => void
   statuses?: TaskStatus[]
+  paginationStatus: PaginationStatus
+  isLoadingMore: boolean
+  loadMore: (numItems: number) => void
+  numItemsPerPage: number
 }
 
 function formatDate(timestamp: number | undefined): string {
@@ -28,6 +35,10 @@ export default function TaskBoardView({
   listId,
   onReorderTasks,
   statuses = defaultStatuses,
+  paginationStatus,
+  isLoadingMore,
+  loadMore,
+  numItemsPerPage,
 }: TaskBoardViewProps) {
   // Group and sort tasks by status and sortOrder
   const tasksByStatus = React.useMemo(() => {
@@ -40,7 +51,7 @@ export default function TaskBoardView({
     return grouped
   }, [tasks, statuses])
 
-  const onDragEnd = async (result: DropResult) => {
+  const onDragEnd = (result: DropResult) => {
     const { source, destination, draggableId } = result
     if (!destination) return
 
@@ -69,27 +80,49 @@ export default function TaskBoardView({
       destTasks.splice(destination.index, 0, task)
     }
 
-    // Call the reorder mutation with the new order
+    // Call the reorder callback with the new order (optimistic update handled by parent)
     const orderedIds = destTasks.map((t) => t._id)
-    await onReorderTasks(destStatusId, orderedIds)
+    onReorderTasks(destStatusId, orderedIds)
   }
 
   return (
-    <DragDropContext onDragEnd={onDragEnd}>
-      <div className="flex h-full w-full gap-4">
-        {statuses.map((status) => (
-          <BoardColumn
-            key={status.id}
-            status={status}
-            tasks={tasksByStatus[status.id] ?? []}
-          />
-        ))}
-      </div>
-    </DragDropContext>
+    <div className="flex h-full flex-col">
+      <DragDropContext onDragEnd={onDragEnd}>
+        <div className="flex min-h-0 flex-1 gap-4">
+          {statuses.map((status) => (
+            <BoardColumn
+              key={status.id}
+              status={status}
+              tasks={tasksByStatus[status.id] ?? []}
+              paginationStatus={paginationStatus}
+              isLoadingMore={isLoadingMore}
+              loadMore={loadMore}
+              numItemsPerPage={numItemsPerPage}
+            />
+          ))}
+        </div>
+      </DragDropContext>
+    </div>
   )
 }
 
-function BoardColumn({ status, tasks }: { status: TaskStatus; tasks: Task[] }) {
+type BoardColumnProps = {
+  status: TaskStatus
+  tasks: Task[]
+  paginationStatus: PaginationStatus
+  isLoadingMore: boolean
+  loadMore: (numItems: number) => void
+  numItemsPerPage: number
+}
+
+function BoardColumn({
+  status,
+  tasks,
+  paginationStatus,
+  isLoadingMore,
+  loadMore,
+  numItemsPerPage,
+}: BoardColumnProps) {
   return (
     <div className={cn("flex h-full max-h-full min-w-0 flex-1 flex-col rounded-lg p-2", status.columnClassName)}>
       <div className="mb-3 flex shrink-0 items-center justify-between px-2">
@@ -126,6 +159,13 @@ function BoardColumn({ status, tasks }: { status: TaskStatus; tasks: Task[] }) {
               <Plus className="size-4" />
               Add Task
             </Button>
+
+            <InfiniteScroll
+              status={paginationStatus}
+              isLoading={isLoadingMore}
+              loadMore={loadMore}
+              numItems={numItemsPerPage}
+            />
           </div>
         )}
       </Droppable>

@@ -1,12 +1,12 @@
 "use client"
 
-import { MoreHorizontal, Palette, Pencil, Trash2 } from "lucide-react"
+import { useState } from "react"
+import { MoreHorizontal, Pencil, Trash2 } from "lucide-react"
 import { Button } from "@/components/ui/button"
 import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
-  DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from "@/components/ui/dropdown-menu"
 
@@ -16,45 +16,34 @@ type ItemMenuProps = {
 }
 
 export function ItemMenu({ onRename, onDelete }: ItemMenuProps) {
+  const [open, setOpen] = useState(false)
+
   return (
-    <DropdownMenu>
+    <DropdownMenu open={open} onOpenChange={setOpen}>
       <DropdownMenuTrigger asChild>
         <Button
           variant="ghost"
           size="icon"
           className="size-7"
-          onClick={(e) => e.stopPropagation()}
           aria-label="More actions"
         >
           <MoreHorizontal className="size-4" />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end" className="w-56">
+      <DropdownMenuContent align="start" className="w-48">
         <DropdownMenuItem
           onSelect={(e) => {
-            e.preventDefault()
-            e.stopPropagation()
-          }}
-        >
-          <Palette className="size-4" />
-          Icon & name
-        </DropdownMenuItem>
-        <DropdownMenuItem
-          onSelect={(e) => {
-            e.preventDefault()
-            e.stopPropagation()
+            setOpen(false)
             onRename()
           }}
         >
           <Pencil className="size-4" />
           Rename
         </DropdownMenuItem>
-        <DropdownMenuSeparator />
         <DropdownMenuItem
           variant="destructive"
           onSelect={(e) => {
-            e.preventDefault()
-            e.stopPropagation()
+            setOpen(false)
             onDelete()
           }}
         >

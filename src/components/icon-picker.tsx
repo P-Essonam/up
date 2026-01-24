@@ -2,8 +2,8 @@
 
 import * as React from "react"
 import { Search, icons, type LucideIcon } from "lucide-react"
-import { Button } from "@/components/ui/button"
 import { Input } from "@/components/ui/input"
+import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { ScrollArea } from "@/components/ui/scroll-area"
 import { cn } from "@/lib/utils"
 
@@ -49,8 +49,6 @@ export function IconPickerWithColor({
   const [query, setQuery] = React.useState("")
   const [isColorOpen, setIsColorOpen] = React.useState(false)
   const [visibleCount, setVisibleCount] = React.useState(PAGE_SIZE)
-  const colorMenuRef = React.useRef<HTMLDivElement | null>(null)
-  const colorButtonRef = React.useRef<HTMLButtonElement | null>(null)
   const loaderRef = React.useRef<HTMLDivElement | null>(null)
 
   const filteredIcons = React.useMemo(() => {
@@ -85,20 +83,8 @@ export function IconPickerWithColor({
     return () => observer.disconnect()
   }, [hasMore])
 
-  React.useEffect(() => {
-    if (!isColorOpen) return
-    const handleOutsideClick = (event: MouseEvent) => {
-      const target = event.target as Node
-      if (colorMenuRef.current?.contains(target)) return
-      if (colorButtonRef.current?.contains(target)) return
-      setIsColorOpen(false)
-    }
-    document.addEventListener("mousedown", handleOutsideClick)
-    return () => document.removeEventListener("mousedown", handleOutsideClick)
-  }, [isColorOpen])
-
   return (
-    <div className="rounded-lg border bg-background p-3 shadow-sm">
+    <div className="p-3">
       <div className="flex items-center justify-between border-b border-border pb-2">
         <span className="text-sm font-semibold text-foreground">Icon</span>
         <button
@@ -121,49 +107,47 @@ export function IconPickerWithColor({
             aria-label="Search icons"
           />
         </div>
-        <div className="relative">
-          <Button
-            type="button"
-            variant="outline"
-            size="icon-sm"
-            className="h-9 w-9"
-            ref={colorButtonRef}
-            onClick={() => setIsColorOpen((prev) => !prev)}
-            aria-label="Choose color"
-          >
-            <span className={cn("size-4 rounded-full", color)} />
-          </Button>
-          {isColorOpen && (
-            <div
-              ref={colorMenuRef}
-              className="absolute right-0 top-full z-10 mt-2 w-64 rounded-lg border bg-background p-3 shadow-lg"
+        <Popover open={isColorOpen} onOpenChange={setIsColorOpen}>
+          <PopoverTrigger asChild>
+            <button
+              type="button"
+              className="flex size-9 items-center justify-center rounded-md border bg-background shadow-xs hover:bg-accent hover:text-accent-foreground dark:bg-input/30 dark:border-input dark:hover:bg-input/50"
+              aria-label="Choose color"
             >
-              <div className="grid grid-cols-7 gap-2">
-                {COLOR_OPTIONS.map((option) => {
-                  const isSelected = option.className === color
-                  return (
-                    <button
-                      key={option.label}
-                      type="button"
-                      aria-pressed={isSelected}
-                      onClick={() => {
-                        onColorChange(option.className)
-                        setIsColorOpen(false)
-                      }}
-                      className={cn(
-                        "flex size-7 items-center justify-center rounded-full border border-transparent transition",
-                        isSelected && "border-foreground/20 ring-2 ring-foreground/15"
-                      )}
-                      title={option.label}
-                    >
-                      <span className={cn("size-5 rounded-full", option.className)} />
-                    </button>
-                  )
-                })}
-              </div>
+              <span className={cn("size-4 rounded-full", color)} />
+            </button>
+          </PopoverTrigger>
+          <PopoverContent
+            align="end"
+            side="bottom"
+            sideOffset={8}
+            className="w-64 rounded-lg p-3"
+          >
+            <div className="grid grid-cols-7 gap-2">
+              {COLOR_OPTIONS.map((option) => {
+                const isSelected = option.className === color
+                return (
+                  <button
+                    key={option.label}
+                    type="button"
+                    aria-pressed={isSelected}
+                    onClick={() => {
+                      onColorChange(option.className)
+                      setIsColorOpen(false)
+                    }}
+                    className={cn(
+                      "flex size-7 items-center justify-center rounded-full border border-transparent transition",
+                      isSelected && "border-foreground/20 ring-2 ring-foreground/15"
+                    )}
+                    title={option.label}
+                  >
+                    <span className={cn("size-5 rounded-full", option.className)} />
+                  </button>
+                )
+              })}
             </div>
-          )}
-        </div>
+          </PopoverContent>
+        </Popover>
       </div>
 
       <ScrollArea className="mt-3 h-56 rounded-md border border-border/60">

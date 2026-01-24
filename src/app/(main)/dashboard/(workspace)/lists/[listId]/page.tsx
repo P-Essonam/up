@@ -2,14 +2,15 @@
 
 import * as React from "react"
 import { useParams } from "next/navigation"
-import { useQuery, useMutation } from "convex/react"
+import { useQuery, useMutation, usePaginatedQuery } from "convex/react"
 import { LayoutGrid, ListChecks, Loader2, Sparkles } from "lucide-react"
-import { api } from "../../../../../../../../convex/_generated/api"
-import type { Id } from "../../../../../../../../convex/_generated/dataModel"
+import { api } from "../../../../../../../convex/_generated/api"
+import type { Id } from "../../../../../../../convex/_generated/dataModel"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
 import TaskListView from "@/features/tasks/components/task-list-view"
 import TaskBoardView from "@/features/tasks/components/task-board-view"
+import type { Task } from "@/features/tasks/lib/types"
 
 type ViewMode = "list" | "board"
 const viewTabs = [
@@ -17,48 +18,98 @@ const viewTabs = [
   { value: "board", label: "Board", icon: LayoutGrid },
 ] as const
 
+const TASKS_PER_PAGE = 20
+
 export default function ListPage() {
-  const params = useParams<{ spaceId: string; listId: string }>()
+  const params = useParams<{ listId: string }>()
   const [view, setView] = React.useState<ViewMode>("list")
 
   const listId = params?.listId as Id<"lists"> | undefined
-  const spaceId = params?.spaceId as Id<"spaces"> | undefined
 
   // Fetch spaces to get space/list names
   const spacesData = useQuery(api.spaces.listWithLists)
 
-  // Fetch tasks for current list
-  const tasks = useQuery(
-    api.tasks.listAll,
-    listId ? { listId } : "skip"
+  // Fetch tasks for current list with pagination
+  const {
+    results: tasksData,
+    status: paginationStatus,
+    loadMore,
+    isLoading: isLoadingTasks,
+  } = usePaginatedQuery(
+    api.tasks.listByList,
+    listId ? { listId } : "skip",
+    { initialNumItems: TASKS_PER_PAGE }
   )
+
+  // Optimistic state for task ordering
+  const [optimisticTaskOrder, setOptimisticTaskOrder] = React.useState<{
+    status: string
+    orderedIds: Id<"tasks">[]
+  } | null>(null)
+
+  // Apply optimistic ordering to tasks
+  const tasks: Task[] = React.useMemo(() => {
+    if (!tasksData) return []
+    if (!optimisticTaskOrder) return tasksData as Task[]
+
+    // Apply optimistic order for the affected status
+    return tasksData.map((task) => {
+      if (task.status === optimisticTaskOrder.status) {
+        const index = optimisticTaskOrder.orderedIds.indexOf(task._id)
+        if (index !== -1) {
+          return { ...task, sortOrder: index }
+        }
+      }
+      return task
+    }) as Task[]
+  }, [tasksData, optimisticTaskOrder])
+
+  // Clear optimistic state when server data matches
+  React.useEffect(() => {
+    if (!tasksData || !optimisticTaskOrder) return
+
+    const serverTasksInStatus = tasksData
+      .filter((t) => t.status === optimisticTaskOrder.status)
+      .sort((a, b) => a.sortOrder - b.sortOrder)
+      .map((t) => t._id)
+
+    if (JSON.stringify(serverTasksInStatus) === JSON.stringify(optimisticTaskOrder.orderedIds)) {
+      setOptimisticTaskOrder(null)
+    }
+  }, [tasksData, optimisticTaskOrder])
 
   // Reorder mutation
   const reorderTasks = useMutation(api.tasks.reorder)
 
-  // Find space and list info
-  const space = React.useMemo(
-    () => spacesData?.find((s) => s._id === spaceId),
-    [spacesData, spaceId]
-  )
-  const list = React.useMemo(
-    () => space?.lists.find((l) => l._id === listId),
-    [space, listId]
-  )
+  // Find space and list info from spaces data
+  const { space, list } = React.useMemo(() => {
+    if (!spacesData || !listId) return { space: null, list: null }
+    for (const s of spacesData) {
+      const foundList = s.lists.find((l) => l._id === listId)
+      if (foundList) {
+        return { space: s, list: foundList }
+      }
+    }
+    return { space: null, list: null }
+  }, [spacesData, listId])
 
   const spaceName = space?.name ?? "Space"
   const listName = list?.name ?? "List"
   const spaceInitial = spaceName.charAt(0).toUpperCase()
 
+  // Optimistic reorder handler
   const handleReorderTasks = React.useCallback(
-    async (status: string, orderedIds: Id<"tasks">[]) => {
+    (status: string, orderedIds: Id<"tasks">[]) => {
       if (!listId) return
-      await reorderTasks({ listId, status, orderedIds })
+      // Apply optimistic update immediately
+      setOptimisticTaskOrder({ status, orderedIds })
+      // Fire mutation without awaiting
+      reorderTasks({ listId, status, orderedIds })
     },
     [listId, reorderTasks]
   )
 
-  const isLoading = spacesData === undefined || tasks === undefined
+  const isLoading = spacesData === undefined || paginationStatus === "LoadingFirstPage"
 
   return (
     <div className="flex h-full flex-col">
@@ -124,12 +175,20 @@ export default function ListPage() {
             tasks={tasks ?? []}
             listId={listId!}
             onReorderTasks={handleReorderTasks}
+            paginationStatus={paginationStatus}
+            isLoadingMore={isLoadingTasks}
+            loadMore={loadMore}
+            numItemsPerPage={TASKS_PER_PAGE}
           />
         ) : (
           <TaskBoardView
             tasks={tasks ?? []}
             listId={listId!}
             onReorderTasks={handleReorderTasks}
+            paginationStatus={paginationStatus}
+            isLoadingMore={isLoadingTasks}
+            loadMore={loadMore}
+            numItemsPerPage={TASKS_PER_PAGE}
           />
         )}
       </div>
