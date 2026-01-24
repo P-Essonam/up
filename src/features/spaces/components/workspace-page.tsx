@@ -21,11 +21,10 @@ export default function WorkspacePage({ preloadedSpaces }: WorkspacePageProps) {
     }
   }, [spacesData, router])
 
-  if (spacesData.length === 0) {
     return (
-      <div className="flex h-full flex-col items-center justify-center gap-2 p-8 text-center animate-in fade-in zoom-in duration-300">
-        <div className="flex size-20 items-center justify-center rounded-full bg-muted/50">
-          <Layers className="size-10 text-muted-foreground" />
+      <div className="flex h-full flex-col items-center justify-center gap-2 p-8 text-center">
+        <div className="flex size-10 items-center justify-center rounded-full bg-muted">
+          <Layers className="size-5 text-muted-foreground" />
         </div>
         <h2 className="mt-4 text-xl font-semibold">Welcome to Spaces</h2>
         <p className="max-w-sm text-sm text-muted-foreground leading-relaxed">
@@ -34,7 +33,5 @@ export default function WorkspacePage({ preloadedSpaces }: WorkspacePageProps) {
         </p>
       </div>
     )
-  }
-
-  return null
+ 
 }

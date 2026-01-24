@@ -1,7 +1,7 @@
 "use client"
 
 import * as React from "react"
-import { useParams } from "next/navigation"
+import { useParams, useRouter } from "next/navigation"
 import { useQuery, useMutation, usePaginatedQuery } from "convex/react"
 import { LayoutGrid, ListChecks, Loader2, Sparkles } from "lucide-react"
 import { api } from "../../../../../../../convex/_generated/api"
@@ -22,6 +22,7 @@ const TASKS_PER_PAGE = 20
 
 export default function ListPage() {
   const params = useParams<{ listId: string }>()
+  const router = useRouter()
   const [view, setView] = React.useState<ViewMode>("list")
 
   const listId = params?.listId as Id<"lists"> | undefined
@@ -92,6 +93,15 @@ export default function ListPage() {
     }
     return { space: null, list: null }
   }, [spacesData, listId])
+
+  // If the current list is deleted while viewing it, navigate back to workspace root.
+  React.useEffect(() => {
+    if (!listId) return
+    if (spacesData === undefined) return
+    if (!list) {
+      router.replace("/dashboard")
+    }
+  }, [listId, list, router, spacesData])
 
   const spaceName = space?.name ?? "Space"
   const listName = list?.name ?? "List"

@@ -13,54 +13,13 @@ export const listByList = query({
   handler: async (ctx, { listId, paginationOpts }) => {
     const org_id = await getOrganizationId(ctx)
 
-    // Verify list exists and belongs to user's organization
-    const list = await ctx.db.get(listId)
-    if (!list) {
-      throw new ConvexError({
-        code: "NOT_FOUND",
-        message: "List not found",
-      })
-    }
-    if (list.organizationId !== org_id) {
-      throw new ConvexError({
-        code: "UNAUTHORIZED",
-        message: "You are not authorized to view this list",
-      })
-    }
-
     return ctx.db
       .query("tasks")
-      .withIndex("by_list", (q) => q.eq("listId", listId))
+      .withIndex("by_organizationId_and_listId", (q) =>
+        q.eq("organizationId", org_id).eq("listId", listId)
+      )
       .order("asc")
       .paginate(paginationOpts)
-  },
-})
-
-// Non-paginated query to get all tasks for a list
-export const listAll = query({
-  args: { listId: v.id("lists") },
-  handler: async (ctx, { listId }) => {
-    const org_id = await getOrganizationId(ctx)
-
-    // Verify list exists and belongs to user's organization
-    const list = await ctx.db.get(listId)
-    if (!list) {
-      throw new ConvexError({
-        code: "NOT_FOUND",
-        message: "List not found",
-      })
-    }
-    if (list.organizationId !== org_id) {
-      throw new ConvexError({
-        code: "UNAUTHORIZED",
-        message: "You are not authorized to view this list",
-      })
-    }
-
-    return ctx.db
-      .query("tasks")
-      .withIndex("by_list", (q) => q.eq("listId", listId))
-      .collect()
   },
 })
 

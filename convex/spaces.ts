@@ -149,7 +149,9 @@ export const remove = mutation({
     for (const list of lists) {
       const tasks = await ctx.db
         .query("tasks")
-        .withIndex("by_list", (q) => q.eq("listId", list._id))
+        .withIndex("by_organizationId_and_listId", (q) =>
+          q.eq("organizationId", org_id).eq("listId", list._id)
+        )
         .collect()
 
       for (const task of tasks) {
