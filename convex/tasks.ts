@@ -50,8 +50,8 @@ export const listByListAndStatus = query({
 
     return ctx.db
       .query("tasks")
-      .withIndex("by_list_status_and_sort", (q) =>
-        q.eq("listId", listId).eq("status", status)
+      .withIndex("by_org_list_status_sort", (q) =>
+        q.eq("organizationId", org_id).eq("listId", listId).eq("status", status)
       )
       .order("asc")
       .paginate(paginationOpts)
@@ -80,6 +80,21 @@ export const create = mutation({
   handler: async (ctx, args) => {
     const org_id = await getOrganizationId(ctx)
     const now = Date.now()
+
+    // Verify list exists and belongs to user's organization
+    const list = await ctx.db.get(args.listId)
+    if (!list) {
+      throw new ConvexError({
+        code: "NOT_FOUND",
+        message: "List not found",
+      })
+    }
+    if (list.organizationId !== org_id) {
+      throw new ConvexError({
+        code: "UNAUTHORIZED",
+        message: "You are not authorized to create tasks in this list",
+      })
+    }
 
     // Get the highest sortOrder for the specified status to place new task at the end
     const lastTask = await ctx.db
@@ -291,6 +306,12 @@ export const reorder = mutation({
         throw new ConvexError({
           code: "UNAUTHORIZED",
           message: "You are not authorized to reorder this task",
+        })
+      }
+      if (task.listId !== args.listId) {
+        throw new ConvexError({
+          code: "BAD_REQUEST",
+          message: "Task does not belong to the specified list",
         })
       }
 

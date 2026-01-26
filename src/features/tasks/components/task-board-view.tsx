@@ -103,7 +103,7 @@ export default function TaskBoardView({
     setIsDragging(true)
   }
 
-  const handleDragEnd = (result: DropResult) => {
+  const handleDragEnd = async (result: DropResult) => {
     setIsDragging(false)
 
     const { source, destination } = result
@@ -119,6 +119,9 @@ export default function TaskBoardView({
     const sourceStatusId = source.droppableId as StatusKey
     const destStatusId = destination.droppableId as StatusKey
 
+    // Capture previous state for rollback
+    const previousOptimisticState = { ...optimisticTasks }
+
     // Build new arrays for optimistic update
     const sourceTasks = [...tasksByStatus[sourceStatusId]]
     const destTasks = sourceStatusId === destStatusId
@@ -129,11 +132,16 @@ export default function TaskBoardView({
     const [movedTask] = sourceTasks.splice(source.index, 1)
     if (!movedTask) return
 
+    // Update the task's status for cross-column moves
+    const updatedTask = sourceStatusId !== destStatusId
+      ? { ...movedTask, status: destStatusId }
+      : movedTask
+
     // Insert into destination
     if (sourceStatusId === destStatusId) {
-      sourceTasks.splice(destination.index, 0, movedTask)
+      sourceTasks.splice(destination.index, 0, updatedTask)
     } else {
-      destTasks.splice(destination.index, 0, movedTask)
+      destTasks.splice(destination.index, 0, updatedTask)
     }
 
     // Set optimistic state immediately
@@ -143,9 +151,14 @@ export default function TaskBoardView({
       ...(sourceStatusId !== destStatusId && { [destStatusId]: destTasks }),
     }))
 
-    // Call the reorder mutation
+    // Call the reorder mutation with error handling
     const orderedIds = destTasks.map((t) => t._id)
-    reorderTasks({ listId, status: destStatusId as Doc<"tasks">["status"], orderedIds })
+    try {
+      await reorderTasks({ listId, status: destStatusId as Doc<"tasks">["status"], orderedIds })
+    } catch {
+      // Rollback to previous state on failure
+      setOptimisticTasks(previousOptimisticState)
+    }
   }
 
   return (
