@@ -61,5 +61,6 @@ export default defineSchema({
     updatedAt: v.number(),
   })
     .index("by_organizationId_and_listId", ["organizationId", "listId"])
-    .index("by_list_status_and_sort", ["listId", "status", "sortOrder"]),
+    .index("by_list_status_and_sort", ["listId", "status", "sortOrder"])
+    .index("by_org_list_status_sort", ["organizationId", "listId", "status", "sortOrder"]),
 })

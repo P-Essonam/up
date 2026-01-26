@@ -16,6 +16,7 @@ import { Textarea } from "@/components/ui/textarea"
 import { Popover, PopoverContent, PopoverTrigger } from "@/components/ui/popover"
 import { IconPickerWithColor, getIcon } from "@/components/icon-picker"
 import { cn } from "@/lib/utils"
+import { toast } from "sonner"
 import type { SpaceFormValues } from "../lib/types"
 import type { Id } from "../../../../convex/_generated/dataModel"
 import { useSpaces } from "../hooks/use-spaces"
@@ -76,9 +77,11 @@ export default function SpaceDialog({
       isEdit
         ? await updateSpace(spaceId!, payload)
         : await createSpaceWithDefaults(payload)
+      onOpenChange(false)
+    } catch (error) {
+      toast.error(isEdit ? "Failed to update space" : "Failed to create space")
     } finally {
       setIsSubmitting(false)
-      onOpenChange(false)
     }
   }
 

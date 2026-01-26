@@ -69,6 +69,21 @@ export const create = mutation({
     const org_id = await getOrganizationId(ctx)
     const now = Date.now()
 
+    // Verify space exists and belongs to user's organization
+    const space = await ctx.db.get(args.spaceId)
+    if (!space) {
+      throw new ConvexError({
+        code: "NOT_FOUND",
+        message: "Space not found",
+      })
+    }
+    if (space.organizationId !== org_id) {
+      throw new ConvexError({
+        code: "UNAUTHORIZED",
+        message: "You are not authorized to create lists in this space",
+      })
+    }
+
     // Get the highest sortOrder to place new list at the end
     const lastList = await ctx.db
       .query("lists")
@@ -111,6 +126,21 @@ export const update = mutation({
       throw new ConvexError({
         code: "UNAUTHORIZED",
         message: "You are not authorized to update this list",
+      })
+    }
+
+    // Verify target space exists and belongs to user's organization
+    const space = await ctx.db.get(args.spaceId)
+    if (!space) {
+      throw new ConvexError({
+        code: "NOT_FOUND",
+        message: "Space not found",
+      })
+    }
+    if (space.organizationId !== org_id) {
+      throw new ConvexError({
+        code: "UNAUTHORIZED",
+        message: "You are not authorized to move lists to this space",
       })
     }
 
