@@ -79,7 +79,7 @@ export default function SpacesSidebar() {
   return (
     <>
       <DragDropContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
-        <div className={cn("flex flex-col gap-1", isDragging && "**:cursor-pointer")}>
+        <div className={cn("flex flex-col", isDragging && "**:cursor-pointer")}>
           <Droppable droppableId="spaces" type="SPACE">
             {(provided) => (
               <div ref={provided.innerRef} {...provided.droppableProps} className="flex flex-col">
@@ -103,7 +103,7 @@ export default function SpacesSidebar() {
           <SecondarySidebarItem
             label="New Space"
             leading={<Plus className="size-4 text-muted-foreground" />}
-            className="cursor-pointer text-muted-foreground"
+            className="cursor-pointer text-muted-foreground h-10"
             onClick={() => setCreateSpaceOpen(true)}
           />
         </div>

@@ -47,6 +47,7 @@ export default function ListDialog({
   const { createList, updateList } = useSpaces()
   const [name, setName] = React.useState("")
   const [spaceId, setSpaceId] = React.useState<Id<"spaces"> | "">("")
+  const [isSubmitting, setIsSubmitting] = React.useState(false)
 
   const isEdit = mode === "edit"
 
@@ -58,20 +59,22 @@ export default function ListDialog({
     }
   }, [open, initialValues, defaultSpaceId, spaces])
 
-  const canSubmit = name.trim().length > 0 && spaceId.length > 0
+  const canSubmit = !!name.trim() && !!spaceId && !isSubmitting
 
-  const handleSubmit = async (event: React.FormEvent) => {
-    event.preventDefault()
-    if (!canSubmit) return
-    const values = { name: name.trim(), spaceId: spaceId as Id<"spaces"> } satisfies ListFormValues
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!canSubmit || (isEdit && !listId)) return
 
-    if (isEdit) {
-      if (!listId) return
-      await updateList(listId, values)
-    } else {
-      await createList(values.spaceId, values.name)
+    setIsSubmitting(true)
+    try {
+      const payload: ListFormValues = { name: name.trim(), spaceId }
+      isEdit
+        ? await updateList(listId!, payload)
+        : await createList(payload.spaceId, payload.name)
+    } finally {
+      setIsSubmitting(false)
+      onOpenChange(false)
     }
-    onOpenChange(false)
   }
 
   return (
@@ -92,7 +95,7 @@ export default function ListDialog({
             <Input
               placeholder="e.g. Project, List of items, Campaign"
               value={name}
-              onChange={(event) => setName(event.target.value)}
+              onChange={(e) => setName(e.target.value)}
               autoFocus
             />
           </div>
@@ -128,7 +131,7 @@ export default function ListDialog({
 
           <DialogFooter>
             <Button type="submit" disabled={!canSubmit} size="lg">
-              {isEdit ? "Save" : "Create"}
+              {isSubmitting ? (isEdit ? "Saving…" : "Creating…") : isEdit ? "Save" : "Create"}
             </Button>
           </DialogFooter>
         </form>

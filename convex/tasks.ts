@@ -23,12 +23,48 @@ export const listByList = query({
   },
 })
 
+// Paginated query to get tasks for a list filtered by status
+export const listByListAndStatus = query({
+  args: {
+    listId: v.id("lists"),
+    status: v.union(v.literal("todo"), v.literal("in-progress"), v.literal("complete")),
+    paginationOpts: paginationOptsValidator,
+  },
+  handler: async (ctx, { listId, status, paginationOpts }) => {
+    const org_id = await getOrganizationId(ctx)
+
+    // Verify list exists and belongs to user's organization
+    const list = await ctx.db.get(listId)
+    if (!list) {
+      throw new ConvexError({
+        code: "NOT_FOUND",
+        message: "List not found",
+      })
+    }
+    if (list.organizationId !== org_id) {
+      throw new ConvexError({
+        code: "UNAUTHORIZED",
+        message: "You are not authorized to view tasks in this list",
+      })
+    }
+
+    return ctx.db
+      .query("tasks")
+      .withIndex("by_list_status_and_sort", (q) =>
+        q.eq("listId", listId).eq("status", status)
+      )
+      .order("asc")
+      .paginate(paginationOpts)
+  },
+})
+
 // Create a new task within a list
 export const create = mutation({
   args: {
     listId: v.id("lists"),
     title: v.string(),
     description: v.optional(v.string()),
+    status: v.union(v.literal("todo"), v.literal("in-progress"), v.literal("complete")),
     priority: v.optional(
       v.union(
         v.literal("low"),
@@ -37,20 +73,19 @@ export const create = mutation({
         v.literal("urgent")
       )
     ),
-    assigneeId: v.optional(v.string()),
+    assigneeIds: v.optional(v.array(v.string())),
     startDate: v.optional(v.number()),
     dueDate: v.optional(v.number()),
-    timeEstimate: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const org_id = await getOrganizationId(ctx)
     const now = Date.now()
 
-    // Get the highest sortOrder for "todo" status to place new task at the end
+    // Get the highest sortOrder for the specified status to place new task at the end
     const lastTask = await ctx.db
       .query("tasks")
       .withIndex("by_list_status_and_sort", (q) =>
-        q.eq("listId", args.listId).eq("status", STATUSES.TODO)
+        q.eq("listId", args.listId).eq("status", args.status)
       )
       .order("desc")
       .first()
@@ -61,13 +96,12 @@ export const create = mutation({
       title: args.title,
       description: args.description,
       listId: args.listId,
-      status: STATUSES.TODO, // Default status
+      status: args.status,
       sortOrder,
       priority: args.priority,
-      assigneeId: args.assigneeId,
+      assigneeIds: args.assigneeIds ?? [],
       startDate: args.startDate,
       dueDate: args.dueDate,
-      timeEstimate: args.timeEstimate,
       organizationId: org_id,
       createdAt: now,
       updatedAt: now,
@@ -81,19 +115,11 @@ export const update = mutation({
     id: v.id("tasks"),
     title: v.optional(v.string()),
     description: v.optional(v.string()),
-    priority: v.optional(
-      v.union(
-        v.literal("low"),
-        v.literal("normal"),
-        v.literal("high"),
-        v.literal("urgent")
-      )
-    ),
-    assigneeId: v.optional(v.string()),
+    status: v.optional(v.union(v.literal("todo"), v.literal("in-progress"), v.literal("complete"))),
+    priority: v.optional(v.union(v.literal("low"), v.literal("normal"), v.literal("high"), v.literal("urgent"))),
+    assigneeIds: v.optional(v.array(v.string())),
     startDate: v.optional(v.number()),
     dueDate: v.optional(v.number()),
-    timeEstimate: v.optional(v.number()),
-    timeTracked: v.optional(v.number()),
   },
   handler: async (ctx, args) => {
     const org_id = await getOrganizationId(ctx)
@@ -113,17 +139,31 @@ export const update = mutation({
       })
     }
 
-    const updates: Record<string, unknown> = { updatedAt: Date.now() }
-    if (args.title !== undefined) updates.title = args.title
-    if (args.description !== undefined) updates.description = args.description
-    if (args.priority !== undefined) updates.priority = args.priority
-    if (args.assigneeId !== undefined) updates.assigneeId = args.assigneeId
-    if (args.startDate !== undefined) updates.startDate = args.startDate
-    if (args.dueDate !== undefined) updates.dueDate = args.dueDate
-    if (args.timeEstimate !== undefined) updates.timeEstimate = args.timeEstimate
-    if (args.timeTracked !== undefined) updates.timeTracked = args.timeTracked
+    // If status is being updated, we need to recalculate sortOrder for the new status
+    let sortOrder = task.sortOrder
+    if (args.status !== undefined && args.status !== task.status) {
+      const newStatus: "todo" | "in-progress" | "complete" = args.status
+      const lastTask = await ctx.db
+        .query("tasks")
+        .withIndex("by_list_status_and_sort", (q) =>
+          q.eq("listId", task.listId).eq("status", newStatus)
+        )
+        .order("desc")
+        .first()
+      sortOrder = lastTask ? lastTask.sortOrder + 1 : 0
+    }
 
-    return ctx.db.patch(args.id, updates)
+    return ctx.db.patch(args.id, {
+      ...(args.title !== undefined && { title: args.title }),
+      description: args.description,
+      ...(args.status !== undefined && { status: args.status }),
+      ...(args.status !== undefined && args.status !== task.status && { sortOrder }),
+      priority: args.priority,
+      assigneeIds: args.assigneeIds,
+      startDate: args.startDate,
+      dueDate: args.dueDate,
+      updatedAt: Date.now(),
+    })
   },
 })
 
@@ -131,7 +171,11 @@ export const update = mutation({
 export const updateStatus = mutation({
   args: {
     id: v.id("tasks"),
-    status: v.string(),
+    status: v.union(
+      v.literal("todo"),
+      v.literal("in-progress"),
+      v.literal("complete")
+    ),
     sortOrder: v.number(),
   },
   handler: async (ctx, args) => {
@@ -199,7 +243,11 @@ export const remove = mutation({
 export const reorder = mutation({
   args: {
     listId: v.id("lists"),
-    status: v.string(),
+    status: v.union(
+      v.literal("todo"),
+      v.literal("in-progress"),
+      v.literal("complete")
+    ),
     orderedIds: v.array(v.id("tasks")),
   },
   handler: async (ctx, args) => {

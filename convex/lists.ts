@@ -3,6 +3,30 @@ import { mutation, query } from "./_generated/server"
 import { paginationOptsValidator } from "convex/server"
 import { getOrganizationId } from "./auth"
 
+// Get list
+export const getList = query({
+  args: { listId: v.id("lists") },
+  handler: async (ctx, { listId }) => {
+    const org_id = await getOrganizationId(ctx)
+    const list = await ctx.db.get(listId)
+    if (!list || list.organizationId !== org_id) return null
+    return list
+  },
+})
+
+// Get list and its space
+export const getListWithSpace = query({
+  args: { listId: v.id("lists") },
+  handler: async (ctx, { listId }) => {
+    const org_id = await getOrganizationId(ctx)
+    const list = await ctx.db.get(listId)
+    if (!list || list.organizationId !== org_id) return null
+    const space = await ctx.db.get(list.spaceId)
+    if (!space || space.organizationId !== org_id) return null
+    return { list, space }
+  },
+})
+
 // Paginated query to get all lists for a space
 export const listBySpace = query({
   args: {

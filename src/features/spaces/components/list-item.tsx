@@ -43,7 +43,7 @@ export function ListItem({ list, index, active }: ListItemProps) {
               active={active}
               onClick={handleSelect}
               className={cn("cursor-pointer", snapshot.isDragging && "bg-muted opacity-80")}
-              leading={<ListChecks className="size-4 text-muted-foreground" />}
+              leading={<ListChecks className="size-4" />}
               actions={
                 <ItemMenu
                   onRename={() => setEditOpen(true)}

@@ -16,3 +16,32 @@ export const formatDate = (value?: string | null) => {
   const day = String(date.getUTCDate()).padStart(2, "0")
   return `${year}-${month}-${day}`
 }
+
+type Member = {
+  firstName?: string | null
+  lastName?: string | null
+  email: string
+}
+
+/**
+ * Gets the display name for a member, using firstName + lastName or falling back to email
+ */
+export function getMemberDisplayName(member: Member): string {
+  const name = [member.firstName, member.lastName]
+    .filter(Boolean)
+    .join(" ")
+  return name || member.email
+}
+
+/**
+ * Gets the initials for a member based on their display name
+ */
+export function getMemberInitials(member: Member): string {
+  const displayName = getMemberDisplayName(member)
+  return displayName
+    .split(" ")
+    .map((part) => part[0])
+    .slice(0, 2)
+    .join("")
+    .toUpperCase()
+}

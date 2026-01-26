@@ -2,7 +2,7 @@
 
 import { ChevronsLeft } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { useSidebar } from "@/components/sidebar-context"
+import { useSidebar } from "@/hooks/use-sidebar-store"
 
 type SecondarySidebarProps = {
   title: string

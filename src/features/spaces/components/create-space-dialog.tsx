@@ -44,9 +44,9 @@ export default function SpaceDialog({
   const [selectedIcon, setSelectedIcon] = React.useState(DEFAULT_ICON)
   const [selectedColor, setSelectedColor] = React.useState(DEFAULT_COLOR)
   const [showIconPicker, setShowIconPicker] = React.useState(false)
+  const [isSubmitting, setIsSubmitting] = React.useState(false)
 
   const isEdit = mode === "edit"
-  const canSubmit = name.trim().length > 0
 
   // Populate form when dialog opens
   React.useEffect(() => {
@@ -59,28 +59,27 @@ export default function SpaceDialog({
     }
   }, [open, initialValues])
 
-  const handleOpenChange = (nextOpen: boolean) => {
-    onOpenChange(nextOpen)
-  }
+  const canSubmit = !!name.trim() && !isSubmitting
 
-  const handleSubmit = async (event: React.FormEvent) => {
-    event.preventDefault()
-    if (!canSubmit) return
-    const values = {
-      name: name.trim(),
-      description: description.trim(),
-      icon: selectedIcon,
-      color: selectedColor,
-    } satisfies SpaceFormValues
+  async function handleSubmit(e: React.FormEvent) {
+    e.preventDefault()
+    if (!canSubmit || (isEdit && !spaceId)) return
 
-    if (isEdit) {
-      if (!spaceId) return
-      await updateSpace(spaceId, values)
-    } else {
-      await createSpaceWithDefaults(values)
+    setIsSubmitting(true)
+    try {
+      const payload: SpaceFormValues = {
+        name: name.trim(),
+        description: description.trim(),
+        icon: selectedIcon,
+        color: selectedColor,
+      }
+      isEdit
+        ? await updateSpace(spaceId!, payload)
+        : await createSpaceWithDefaults(payload)
+    } finally {
+      setIsSubmitting(false)
+      onOpenChange(false)
     }
-
-    onOpenChange(false)
   }
 
   const handleReset = () => {
@@ -91,7 +90,7 @@ export default function SpaceDialog({
   const SelectedIconComponent = getIcon(selectedIcon)
 
   return (
-    <Dialog open={open} onOpenChange={handleOpenChange}>
+    <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-xl">
         <DialogHeader>
           <DialogTitle>{isEdit ? "Edit Space" : "Create a Space"}</DialogTitle>
@@ -146,7 +145,7 @@ export default function SpaceDialog({
                 id="space-name"
                 placeholder="e.g. Marketing, Engineering, HR"
                 value={name}
-                onChange={(event) => setName(event.target.value)}
+                onChange={(e) => setName(e.target.value)}
                 autoFocus
                 className="flex-1"
               />
@@ -163,14 +162,14 @@ export default function SpaceDialog({
             <Textarea
               id="space-description"
               value={description}
-              onChange={(event) => setDescription(event.target.value)}
+              onChange={(e) => setDescription(e.target.value)}
               rows={3}
             />
           </div>
 
           <DialogFooter>
             <Button type="submit" disabled={!canSubmit} size="lg">
-              {isEdit ? "Save" : "Continue"}
+              {isSubmitting ? (isEdit ? "Saving…" : "Creating…") : isEdit ? "Save" : "Continue"}
             </Button>
           </DialogFooter>
         </form>

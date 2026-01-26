@@ -39,7 +39,11 @@ export default defineSchema({
     title: v.string(),
     description: v.optional(v.string()),
     listId: v.id("lists"),
-    status: v.string(), // Predefined status: "todo", "in-progress", "complete"
+    status: v.union(
+      v.literal("todo"),
+      v.literal("in-progress"),
+      v.literal("complete")
+    ),
     sortOrder: v.number(), // Order within status column
     priority: v.optional(
       v.union(
@@ -49,11 +53,9 @@ export default defineSchema({
         v.literal("urgent")
       )
     ),
-    assigneeId: v.optional(v.string()),
+    assigneeIds: v.array(v.string()),
     startDate: v.optional(v.number()),
     dueDate: v.optional(v.number()),
-    timeEstimate: v.optional(v.number()), // Time estimate in minutes
-    timeTracked: v.optional(v.number()), // Total time tracked in minutes
     organizationId: v.string(),
     createdAt: v.number(),
     updatedAt: v.number(),

@@ -1,55 +1,81 @@
 "use client"
 
 import * as React from "react"
+import { useMutation, usePaginatedQuery } from "convex/react"
 import { DragDropContext, Draggable, Droppable, type DropResult } from "@hello-pangea/dnd"
 import { Calendar, Flag, Plus } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
 import { cn } from "@/lib/utils"
-import { defaultStatuses } from "@/features/tasks/lib/data"
 import type { Task, TaskStatus } from "@/features/tasks/lib/types"
-import type { Id } from "../../../../convex/_generated/dataModel"
+import { formatTaskDate } from "@/features/tasks/lib/utils"
+import type { Doc, Id } from "../../../../convex/_generated/dataModel"
+import { api } from "../../../../convex/_generated/api"
 import { InfiniteScroll } from "@/components/infinite-scroll"
-
-type PaginationStatus = "LoadingFirstPage" | "CanLoadMore" | "LoadingMore" | "Exhausted"
+import { TASKS_PER_PAGE } from "@/features/lists/lib/constants"
+import type { PaginationStatus } from "convex/react"
 
 type TaskBoardViewProps = {
-  tasks: Task[]
   listId: Id<"lists">
-  onReorderTasks: (status: string, orderedIds: Id<"tasks">[]) => void
-  statuses?: TaskStatus[]
-  paginationStatus: PaginationStatus
-  isLoadingMore: boolean
-  loadMore: (numItems: number) => void
-  numItemsPerPage: number
-}
-
-function formatDate(timestamp: number | undefined): string {
-  if (!timestamp) return ""
-  const date = new Date(timestamp)
-  return date.toLocaleDateString("en-US", { month: "short", day: "numeric" })
 }
 
 export default function TaskBoardView({
-  tasks,
   listId,
-  onReorderTasks,
-  statuses = defaultStatuses,
-  paginationStatus,
-  isLoadingMore,
-  loadMore,
-  numItemsPerPage,
 }: TaskBoardViewProps) {
-  // Group and sort tasks by status and sortOrder
+  const reorderTasks = useMutation(api.tasks.reorder)
+
+  // Load tasks for each status independently
+  const todoQuery = usePaginatedQuery(
+    api.tasks.listByListAndStatus,
+    { listId, status: "todo" },
+    { initialNumItems: TASKS_PER_PAGE }
+  )
+  const inProgressQuery = usePaginatedQuery(
+    api.tasks.listByListAndStatus,
+    { listId, status: "in-progress" },
+    { initialNumItems: TASKS_PER_PAGE }
+  )
+  const completeQuery = usePaginatedQuery(
+    api.tasks.listByListAndStatus,
+    { listId, status: "complete" },
+    { initialNumItems: TASKS_PER_PAGE }
+  )
+
+  // Map status IDs to their query results
+  const statusQueries = React.useMemo(() => {
+    return {
+      todo: todoQuery,
+      "in-progress": inProgressQuery,
+      complete: completeQuery,
+    }
+  }, [todoQuery, inProgressQuery, completeQuery])
+
+  // Get tasks for a specific status
+  const getTasksForStatus = (statusId: string): Task[] => {
+    const query = statusQueries[statusId as keyof typeof statusQueries]
+    if (!query) return []
+    return (query.results as Task[]) ?? []
+  }
+
+  // Get pagination info for a specific status
+  const getPaginationForStatus = (statusId: string) => {
+    const query = statusQueries[statusId as keyof typeof statusQueries]
+    if (!query) return { status: "Exhausted" as const, loadMore: () => {}, isLoading: false }
+    return {
+      status: query.status,
+      loadMore: query.loadMore,
+      isLoading: query.isLoading,
+    }
+  }
+
+  // Group tasks by status for drag and drop
   const tasksByStatus = React.useMemo(() => {
     const grouped: Record<string, Task[]> = {}
-    for (const status of statuses) {
-      grouped[status.id] = tasks
-        .filter((task) => task.status === status.id)
-        .sort((a, b) => a.sortOrder - b.sortOrder)
+    for (const taskStatus of statuses) {
+      grouped[taskStatus.id] = getTasksForStatus(taskStatus.id)
     }
     return grouped
-  }, [tasks, statuses])
+  }, [statuses, statusQueries])
 
   const onDragEnd = (result: DropResult) => {
     const { source, destination, draggableId } = result
@@ -75,31 +101,36 @@ export default function TaskBoardView({
       destTasks.splice(destination.index, 0, movedTask)
     } else {
       // Moving to a different column
-      const task = tasks.find((t) => t._id === taskId)
+      const allTasks = Object.values(tasksByStatus).flat()
+      const task = allTasks.find((t) => t._id === taskId)
       if (!task) return
       destTasks.splice(destination.index, 0, task)
     }
 
-    // Call the reorder callback with the new order (optimistic update handled by parent)
+    // Call the reorder mutation directly
     const orderedIds = destTasks.map((t) => t._id)
-    onReorderTasks(destStatusId, orderedIds)
+    reorderTasks({ listId, status: destStatusId as Doc<"tasks">["status"], orderedIds })
   }
 
   return (
     <div className="flex h-full flex-col">
       <DragDropContext onDragEnd={onDragEnd}>
         <div className="flex min-h-0 flex-1 gap-4">
-          {statuses.map((status) => (
-            <BoardColumn
-              key={status.id}
-              status={status}
-              tasks={tasksByStatus[status.id] ?? []}
-              paginationStatus={paginationStatus}
-              isLoadingMore={isLoadingMore}
-              loadMore={loadMore}
-              numItemsPerPage={numItemsPerPage}
-            />
-          ))}
+          {statuses.map((taskStatus) => {
+            const tasks = tasksByStatus[taskStatus.id] ?? []
+            const pagination = getPaginationForStatus(taskStatus.id)
+            return (
+              <BoardColumn
+                key={taskStatus.id}
+                status={taskStatus}
+                tasks={tasks}
+                paginationStatus={pagination.status}
+                isLoadingMore={pagination.isLoading}
+                loadMore={pagination.loadMore}
+                numItemsPerPage={TASKS_PER_PAGE}
+              />
+            )
+          })}
         </div>
       </DragDropContext>
     </div>
@@ -190,13 +221,22 @@ function TaskCard({ task, index }: { task: Task; index: number }) {
 
           <div className="flex items-center justify-between text-muted-foreground">
             <div className="flex items-center gap-2">
-              {task.assigneeId && (
-                <span className="text-xs">{task.assigneeId}</span>
+              {task.assigneeIds.length > 0 && (
+                <div className="flex items-center gap-1">
+                  {task.assigneeIds.slice(0, 2).map((assigneeId) => (
+                    <span key={assigneeId} className="text-xs">
+                      {assigneeId}
+                    </span>
+                  ))}
+                  {task.assigneeIds.length > 2 && (
+                    <span className="text-xs">+{task.assigneeIds.length - 2}</span>
+                  )}
+                </div>
               )}
               {task.dueDate && (
                 <div className="flex items-center gap-1 text-xs">
                   <Calendar className="size-3" />
-                  <span>{formatDate(task.dueDate)}</span>
+                  <span>{formatTaskDate(task.dueDate)}</span>
                 </div>
               )}
             </div>
