@@ -57,7 +57,7 @@ export default function GeneralSettings() {
   const widgetsReady = !tokenLoading && !!accessToken
 
   return (
-    <div className="space-y-8">
+    <div className="space-y-8 relative">
       {/* Organization name */}
       <section className="rounded-lg border border-border/60 bg-background">
         <div className="space-y-4 p-4">
@@ -93,43 +93,45 @@ export default function GeneralSettings() {
       </section>
 
       {/* Security & Sessions widgets */}
-      <WorkOsWidgets>
-        <section className="rounded-lg border border-border/60 bg-background p-4">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-            <div>
-              <h2 className="text-sm font-semibold">Security</h2>
-              <p className="text-sm text-muted-foreground">
-                Manage your password and multi-factor authentication.
-              </p>
-            </div>
-            <div className="w-full lg:max-w-lg">
-              {widgetsReady ? (
-                <UserSecurity authToken={getAuthToken} />
-              ) : (
-                <Skeleton className="h-24 w-full" />
-              )}
-            </div>
-          </div>
-        </section>
 
-        <section className="rounded-lg border border-border/60 bg-background p-4 mt-8">
-          <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
-            <div>
-              <h2 className="text-sm font-semibold">Sessions</h2>
-              <p className="text-sm text-muted-foreground">
-                Review active sessions across your devices.
-              </p>
+        <WorkOsWidgets style={{ display: "contents" }}>
+          <section className="rounded-lg border border-border/60 bg-background p-4">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <div>
+                <h2 className="text-sm font-semibold">Security</h2>
+                <p className="text-sm text-muted-foreground">
+                  Manage your password and multi-factor authentication.
+                </p>
+              </div>
+              <div className="w-full lg:max-w-lg">
+                {widgetsReady ? (
+                  <UserSecurity authToken={getAuthToken} />
+                ) : (
+                  <Skeleton className="h-24 w-full" />
+                )}
+              </div>
             </div>
-            <div className="w-full lg:max-w-lg">
-              {widgetsReady ? (
-                <UserSessions authToken={getAuthToken} />
-              ) : (
-                <Skeleton className="h-24 w-full" />
-              )}
+          </section>
+
+          <section className="rounded-lg border border-border/60 bg-background p-4 mt-8">
+            <div className="flex flex-col gap-4 lg:flex-row lg:items-start lg:justify-between">
+              <div>
+                <h2 className="text-sm font-semibold">Sessions</h2>
+                <p className="text-sm text-muted-foreground">
+                  Review active sessions across your devices.
+                </p>
+              </div>
+              <div className="w-full lg:max-w-lg">
+                {widgetsReady ? (
+                  <UserSessions authToken={getAuthToken} />
+                ) : (
+                  <Skeleton className="h-24 w-full" />
+                )}
+              </div>
             </div>
-          </div>
-        </section>
-      </WorkOsWidgets>
+          </section>
+        </WorkOsWidgets>
+   
     </div>
   )
 }

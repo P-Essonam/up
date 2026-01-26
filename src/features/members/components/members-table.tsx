@@ -18,7 +18,7 @@ import { useTRPC } from "@/trpc/client"
 import InviteMemberDialog from "@/features/members/components/invite-member-dialog"
 import MemberActions from "@/features/members/components/member-actions"
 import MemberStatusBadge from "@/features/members/components/member-status-badge"
-import { formatDate } from "@/lib/utils"
+import { formatDate, getMemberDisplayName, getMemberInitials } from "@/lib/utils"
 import { normalizeAdminMemberRole } from "@/features/members/lib/utils"
 
 export default function MembersTable() {
@@ -103,17 +103,8 @@ export default function MembersTable() {
 
           {!isLoading &&
             members.map((member) => {
-              const displayName = [member.firstName, member.lastName]
-                .filter(Boolean)
-                .join(" ")
-              const fallbackName = displayName || member.email
-              const initials = fallbackName
-                .split(" ")
-                .map((part) => part[0])
-                .slice(0, 2)
-                .join("")
-                .toUpperCase()
-
+              const displayName = getMemberDisplayName(member)
+              const initials = getMemberInitials(member)
               const role = normalizeAdminMemberRole(member.role)
 
               return (

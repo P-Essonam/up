@@ -4,7 +4,6 @@ import * as React from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import {
-  Home,
   Layers,
   Bot,
   Calendar,
@@ -15,11 +14,11 @@ import {
 import UserButton from "@/components/user-button"
 import WorkspaceHeader from "@/components/workspace-header"
 import { cn } from "@/lib/utils"
-import { SidebarProvider, useSidebar } from "@/components/sidebar-context"
+import { useSidebar } from "@/hooks/use-sidebar-store"
+import { AskAISidebar } from "@/features/lists/components/ask-ai-sidebar"
 
 const navItems = [
-  { title: "Home", url: "/dashboard", icon: Home },
-  { title: "Spaces", url: "/dashboard/spaces", icon: Layers },
+  { title: "Spaces", url: "/dashboard", icon: Layers },
   { title: "Chat", url: "/dashboard/chat", icon: Calendar },
   { title: "AI", url: "/dashboard/ai", icon: Bot },
   { title: "Settings", url: "/dashboard/settings", icon: Settings },
@@ -30,19 +29,11 @@ interface Props {
 }
 
 export default function DashboardSidebar({ children }: Props) {
-  return (
-    <SidebarProvider>
-      <DashboardSidebarContent>{children}</DashboardSidebarContent>
-    </SidebarProvider>
-  )
-}
-
-
-function DashboardSidebarContent({ children }: Props) {
   const pathname = usePathname()
   const { sidebarOpen, openSidebar } = useSidebar()
   const isActive = (url: string) => {
-    if (url === "/dashboard") return pathname === "/dashboard"
+    if (url === "/dashboard")
+      return pathname === "/dashboard" || pathname.startsWith("/dashboard/lists")
     return pathname.startsWith(url)
   }
 
@@ -112,6 +103,9 @@ function DashboardSidebarContent({ children }: Props) {
         <main className="flex flex-1 overflow-hidden border rounded-lg">
           {children}
         </main>
+        
+        {/* AI Sidebar */}
+        <AskAISidebar />
       </div>
     </div>
   )

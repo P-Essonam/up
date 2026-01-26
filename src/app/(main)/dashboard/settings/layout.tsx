@@ -1,10 +1,9 @@
 "use client"
 
-import * as React from "react"
 import Link from "next/link"
 import { usePathname } from "next/navigation"
 import { Clock, Settings, Users } from "lucide-react"
-import SecondarySidebar from "@/components/secondary-sidebar"
+import { SecondarySidebar } from "@/components/secondary-sidebar"
 import { cn } from "@/lib/utils"
 
 const settingsNavItems = [
@@ -13,11 +12,7 @@ const settingsNavItems = [
   { title: "Pending", url: "/dashboard/settings/pending", icon: Clock },
 ]
 
-export default function SettingsLayout({
-  children,
-}: {
-  children: React.ReactNode
-}) {
+export default function SettingsLayout({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()
 
   const isActive = (url: string) => {
@@ -27,7 +22,7 @@ export default function SettingsLayout({
 
   return (
     <div className="flex flex-1 overflow-hidden">
-      <SecondarySidebar title="Settings" showCreateButton={false}>
+      <SecondarySidebar title="Settings">
         <nav className="flex flex-col gap-2">
           {settingsNavItems.map((item) => {
             const active = isActive(item.url)

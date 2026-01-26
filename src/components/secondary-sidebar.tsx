@@ -1,23 +1,16 @@
 "use client"
 
-import * as React from "react"
-import { ChevronDown, ChevronsLeft, Plus } from "lucide-react"
+import { ChevronsLeft } from "lucide-react"
 import { Button } from "@/components/ui/button"
-import { useSidebar } from "@/components/sidebar-context"
+import { useSidebar } from "@/hooks/use-sidebar-store"
 
-interface SecondarySidebarProps {
+type SecondarySidebarProps = {
   title: string
-  showCreateButton?: boolean
-  onCreateClick?: () => void
+  actions?: React.ReactNode
   children: React.ReactNode
 }
 
-export default function SecondarySidebar({
-  title,
-  showCreateButton = true,
-  onCreateClick,
-  children,
-}: SecondarySidebarProps) {
+export function SecondarySidebar({ title, actions, children }: SecondarySidebarProps) {
   const { sidebarOpen, closeSidebar } = useSidebar()
 
   if (!sidebarOpen) return null
@@ -31,27 +24,16 @@ export default function SecondarySidebar({
             variant="ghost"
             size="sm"
             onClick={closeSidebar}
-            className="h-8 border-none bg-transparent px-2 text-muted-foreground transition-opacity hover:bg-muted xl:opacity-0 xl:group-hover/secondary:opacity-100"
+            className="transition-opacity hover:bg-muted xl:opacity-0 xl:group-hover/secondary:opacity-100"
             title="Close sidebar"
             aria-label="Close sidebar"
           >
             <ChevronsLeft className="size-4" />
           </Button>
-          {showCreateButton && onCreateClick && (
-            <Button
-              variant="outline"
-              size="sm"
-              onClick={onCreateClick}
-              className="h-8 gap-1 rounded-md border-border/70 bg-background/60 px-2 text-muted-foreground hover:bg-muted"
-              title="Create"
-            >
-              <Plus className="size-4" />
-              <ChevronDown className="size-3" />
-            </Button>
-          )}
+          {actions}
         </div>
       </div>
-      <div className="flex-1 overflow-auto p-3">{children}</div>
+      <div className="flex-1 p-2">{children}</div>
     </div>
   )
 }
