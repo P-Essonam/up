@@ -52,6 +52,7 @@ type TaskDialogProps = {
   mode?: "create" | "edit"
   task?: Task
   taskId?: Id<"tasks">
+  defaultStatus?: TaskFormValues["status"]
 }
 
 export function TaskDialog({ 
@@ -60,7 +61,8 @@ export function TaskDialog({
   listId, 
   mode = "create",
   task,
-  taskId 
+  taskId,
+  defaultStatus
 }: TaskDialogProps) {
   const trpc = useTRPC()
   const createTask = useConvexMutation(api.tasks.create)
@@ -78,14 +80,14 @@ export function TaskDialog({
 
   const form = useForm<TaskFormValues>({
     resolver: zodResolver(taskFormSchema),
-    defaultValues: getDefaultValues(task),
+    defaultValues: getDefaultValues(task, defaultStatus),
   })
 
   useEffect(() => {
     if (open) {
-      form.reset(getDefaultValues(isEdit ? task : undefined))
+      form.reset(getDefaultValues(isEdit ? task : undefined, isEdit ? undefined : defaultStatus))
     }
-  }, [open, isEdit, task, form])
+  }, [open, isEdit, task, form, defaultStatus])
 
   const assigneeIds = form.watch("assigneeIds") ?? []
   const assignedMembers = useMemo(

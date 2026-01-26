@@ -115,8 +115,7 @@ export default function TaskListView({
                 </button>
 
                 {!isCollapsed && (
-
-                  <div className="max-h-100 overflow-y-auto overflow-x-auto">
+                  <div className="w-full">
                     <table className="w-full caption-bottom text-sm">
                       <thead className="sticky top-0 z-10 bg-background [&_tr]:border-b">
                         <tr className="border-b hover:bg-muted/50 data-[state=selected]:bg-muted transition-colors">

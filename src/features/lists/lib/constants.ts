@@ -11,4 +11,4 @@ export const VIEW_TABS = [
 export const VIEW_PARAM = "view"
 
 
-export const TASKS_PER_PAGE = 20
+export const TASKS_PER_PAGE = 10

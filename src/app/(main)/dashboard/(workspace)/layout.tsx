@@ -52,7 +52,7 @@ export default function WorkspaceLayout({ children }: { children: React.ReactNod
           <SpacesSidebar />
         )}
       </SecondarySidebar>
-      <div className="flex-1 size-full">{children}</div>
+      <div className="flex-1 min-w-0">{children}</div>
       <SpaceDialog
         open={createSpaceOpen}
         onOpenChange={setCreateSpaceOpen}

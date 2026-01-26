@@ -6,6 +6,7 @@ import { useMutation, useQuery } from "convex/react"
 import { api } from "../../../../convex/_generated/api"
 import type { Id } from "../../../../convex/_generated/dataModel"
 import type { Space } from "../lib/types"
+import { idsMatch, reorderById } from "../lib/utils"
 
 export function useSpaces() {
   const router = useRouter()
@@ -15,6 +16,7 @@ export function useSpaces() {
 
   // UI state for open/closed spaces
   const [openSpaces, setOpenSpaces] = useState<Set<string>>(() => new Set())
+  const [hasInitializedOpenSpaces, setHasInitializedOpenSpaces] = useState(false)
 
   // Optimistic state for drag-and-drop reordering
   const [optimisticSpaceOrder, setOptimisticSpaceOrder] = useState<Id<"spaces">[] | null>(null)
@@ -33,84 +35,56 @@ export function useSpaces() {
 
   const createTaskMutation = useMutation(api.tasks.create)
 
-  // Merge server data with local UI state and optimistic ordering
+  // Merge server data with optimistic ordering
   const spaces: Space[] = useMemo(() => {
     if (!spacesData) return []
 
-    // Collect all lists from all spaces for cross-space moves
-    const allLists = spacesData.flatMap((space) => space.lists)
+    const allLists = spacesData.flatMap((s) => s.lists)
 
-    let orderedSpaces = spacesData.map((space) => {
-      // Apply optimistic list order if exists
-      const optimisticOrder = optimisticListOrders[space._id]
-      let orderedLists = space.lists
+    let result = spacesData.map((space) => ({
+      ...space,
+      lists: optimisticListOrders[space._id]
+        ? reorderById(allLists, optimisticListOrders[space._id])
+        : space.lists,
+      isOpen: hasInitializedOpenSpaces ? openSpaces.has(space._id) : true,
+    }))
 
-      if (optimisticOrder) {
-        // Look for lists in all spaces (for cross-space moves)
-        orderedLists = optimisticOrder
-          .map((id) => allLists.find((l) => l._id === id))
-          .filter((l): l is NonNullable<typeof l> => l !== undefined)
-        // Don't add back missing lists - they were intentionally removed/moved
-      }
-
-      return {
-        ...space,
-        lists: orderedLists,
-        isOpen: openSpaces.has(space._id) || openSpaces.size === 0,
-      }
-    })
-
-    // Apply optimistic space order if exists
     if (optimisticSpaceOrder) {
-      orderedSpaces = optimisticSpaceOrder
-        .map((id) => orderedSpaces.find((s) => s._id === id))
-        .filter((s): s is NonNullable<typeof s> => s !== undefined)
-      // Don't add back missing spaces - they were intentionally removed
+      result = reorderById(result, optimisticSpaceOrder)
     }
 
-    return orderedSpaces
-  }, [spacesData, openSpaces, optimisticSpaceOrder, optimisticListOrders])
+    return result
+  }, [spacesData, openSpaces, hasInitializedOpenSpaces, optimisticSpaceOrder, optimisticListOrders])
 
-  // Clear optimistic state when server data matches
+  // Clear optimistic state when server catches up
   useEffect(() => {
     if (!spacesData) return
 
-    // Clear optimistic space order when server order matches
-    if (optimisticSpaceOrder) {
-      const serverOrder = spacesData.map((s) => s._id)
-      if (JSON.stringify(serverOrder) === JSON.stringify(optimisticSpaceOrder)) {
-        setOptimisticSpaceOrder(null)
-      }
+    if (optimisticSpaceOrder && idsMatch(spacesData.map((s) => s._id), optimisticSpaceOrder)) {
+      setOptimisticSpaceOrder(null)
     }
 
-    // Clear optimistic list orders when server order matches
-    if (Object.keys(optimisticListOrders).length > 0) {
-      const newOptimisticListOrders = { ...optimisticListOrders }
-      let hasChanges = false
+    const staleKeys = Object.keys(optimisticListOrders).filter((spaceId) => {
+      const space = spacesData.find((s) => s._id === spaceId)
+      return space && idsMatch(space.lists.map((l) => l._id), optimisticListOrders[spaceId])
+    })
 
-      for (const spaceId of Object.keys(optimisticListOrders)) {
-        const space = spacesData.find((s) => s._id === spaceId)
-        if (space) {
-          const serverOrder = space.lists.map((l) => l._id)
-          if (JSON.stringify(serverOrder) === JSON.stringify(optimisticListOrders[spaceId])) {
-            delete newOptimisticListOrders[spaceId]
-            hasChanges = true
-          }
-        }
-      }
-
-      if (hasChanges) {
-        setOptimisticListOrders(newOptimisticListOrders)
-      }
+    if (staleKeys.length > 0) {
+      setOptimisticListOrders((prev) => {
+        const next = { ...prev }
+        staleKeys.forEach((key) => delete next[key])
+        return next
+      })
     }
   }, [spacesData, optimisticSpaceOrder, optimisticListOrders])
 
   // Initialize openSpaces when data loads
   useEffect(() => {
-    if (spacesData && openSpaces.size === 0) {
+    if (spacesData && !hasInitializedOpenSpaces) {
       setOpenSpaces(new Set(spacesData.map((s) => s._id)))
+      setHasInitializedOpenSpaces(true)
     }
-  }, [spacesData, openSpaces.size])
+  }, [spacesData, hasInitializedOpenSpaces])
 
   const isLoading = spacesData === undefined
 
@@ -149,6 +123,7 @@ export function useSpaces() {
     await createTaskMutation({
       listId,
       title: "My first task",
+      status: "todo",
     })
 
     setOpenSpaces((prev) => new Set([...prev, spaceId]))

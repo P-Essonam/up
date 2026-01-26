@@ -2,18 +2,22 @@
 
 import * as React from "react"
 import { useMutation, usePaginatedQuery } from "convex/react"
-import { DragDropContext, Draggable, Droppable, type DropResult } from "@hello-pangea/dnd"
+import { DragDropContext, Draggable, Droppable, type DragStart, type DropResult } from "@hello-pangea/dnd"
 import { Calendar, Flag, Plus } from "lucide-react"
 import { Badge } from "@/components/ui/badge"
 import { Button } from "@/components/ui/button"
-import { cn } from "@/lib/utils"
-import type { Task, TaskStatus } from "@/features/tasks/lib/types"
+import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar"
+import { cn, getMemberInitials } from "@/lib/utils"
+import type { Task, TaskStatus, StatusKey } from "@/features/tasks/lib/types"
 import { formatTaskDate } from "@/features/tasks/lib/utils"
+import { defaultStatuses, priorityOptions } from "@/features/tasks/lib/constants"
 import type { Doc, Id } from "../../../../convex/_generated/dataModel"
 import { api } from "../../../../convex/_generated/api"
 import { InfiniteScroll } from "@/components/infinite-scroll"
 import { TASKS_PER_PAGE } from "@/features/lists/lib/constants"
-import type { PaginationStatus } from "convex/react"
+import { useQuery } from "@tanstack/react-query"
+import { useTRPC } from "@/trpc/client"
+import { TaskDialog } from "./task-dialog"
 
 type TaskBoardViewProps = {
   listId: Id<"lists">
@@ -23,6 +27,13 @@ export default function TaskBoardView({
   listId,
 }: TaskBoardViewProps) {
   const reorderTasks = useMutation(api.tasks.reorder)
+  const [isDialogOpen, setIsDialogOpen] = React.useState(false)
+  const [editingTask, setEditingTask] = React.useState<Task | null>(null)
+  const [isDragging, setIsDragging] = React.useState(false)
+  const [defaultStatus, setDefaultStatus] = React.useState<StatusKey>("todo")
+
+  // Optimistic state for immediate UI updates during drag
+  const [optimisticTasks, setOptimisticTasks] = React.useState<Partial<Record<StatusKey, Task[]>>>({})
 
   // Load tasks for each status independently
   const todoQuery = usePaginatedQuery(
@@ -42,43 +53,60 @@ export default function TaskBoardView({
   )
 
   // Map status IDs to their query results
-  const statusQueries = React.useMemo(() => {
-    return {
-      todo: todoQuery,
-      "in-progress": inProgressQuery,
-      complete: completeQuery,
-    }
-  }, [todoQuery, inProgressQuery, completeQuery])
-
-  // Get tasks for a specific status
-  const getTasksForStatus = (statusId: string): Task[] => {
-    const query = statusQueries[statusId as keyof typeof statusQueries]
-    if (!query) return []
-    return (query.results as Task[]) ?? []
+  const statusQueries = {
+    todo: todoQuery,
+    "in-progress": inProgressQuery,
+    complete: completeQuery,
   }
 
-  // Get pagination info for a specific status
-  const getPaginationForStatus = (statusId: string) => {
-    const query = statusQueries[statusId as keyof typeof statusQueries]
-    if (!query) return { status: "Exhausted" as const, loadMore: () => {}, isLoading: false }
-    return {
-      status: query.status,
-      loadMore: query.loadMore,
-      isLoading: query.isLoading,
-    }
+  // Server data by status
+  const serverTasksByStatus: Record<StatusKey, Task[]> = React.useMemo(() => ({
+    todo: todoQuery.results,
+    "in-progress": inProgressQuery.results,
+    complete: completeQuery.results,
+  }), [todoQuery.results, inProgressQuery.results, completeQuery.results])
+
+  // Displayed tasks: use optimistic if present, otherwise server data
+  const tasksByStatus: Record<StatusKey, Task[]> = React.useMemo(() => ({
+    todo: optimisticTasks.todo ?? serverTasksByStatus.todo,
+    "in-progress": optimisticTasks["in-progress"] ?? serverTasksByStatus["in-progress"],
+    complete: optimisticTasks.complete ?? serverTasksByStatus.complete,
+  }), [optimisticTasks, serverTasksByStatus])
+
+  // Clear optimistic state when server data matches
+  React.useEffect(() => {
+    if (Object.keys(optimisticTasks).length === 0) return
+
+    setOptimisticTasks((prev) => {
+      const next = { ...prev }
+      let changed = false
+
+      for (const status of Object.keys(prev) as StatusKey[]) {
+        const optimistic = prev[status]
+        const server = serverTasksByStatus[status]
+        if (!optimistic) continue
+
+        const optimisticIds = optimistic.map((t) => t._id).join(",")
+        const serverIds = server.map((t) => t._id).join(",")
+
+        if (optimisticIds === serverIds) {
+          delete next[status]
+          changed = true
+        }
+      }
+
+      return changed ? next : prev
+    })
+  }, [serverTasksByStatus, optimisticTasks])
+
+  const handleDragStart = (_start: DragStart) => {
+    setIsDragging(true)
   }
 
-  // Group tasks by status for drag and drop
-  const tasksByStatus = React.useMemo(() => {
-    const grouped: Record<string, Task[]> = {}
-    for (const taskStatus of statuses) {
-      grouped[taskStatus.id] = getTasksForStatus(taskStatus.id)
-    }
-    return grouped
-  }, [statuses, statusQueries])
+  const handleDragEnd = (result: DropResult) => {
+    setIsDragging(false)
 
-  const onDragEnd = (result: DropResult) => {
-    const { source, destination, draggableId } = result
+    const { source, destination } = result
     if (!destination) return
 
     if (
@@ -88,75 +116,109 @@ export default function TaskBoardView({
       return
     }
 
-    const sourceStatusId = source.droppableId
-    const destStatusId = destination.droppableId
-    const taskId = draggableId as Id<"tasks">
+    const sourceStatusId = source.droppableId as StatusKey
+    const destStatusId = destination.droppableId as StatusKey
 
-    // Get the tasks in destination column
-    const destTasks = [...(tasksByStatus[destStatusId] ?? [])]
+    // Build new arrays for optimistic update
+    const sourceTasks = [...tasksByStatus[sourceStatusId]]
+    const destTasks = sourceStatusId === destStatusId
+      ? sourceTasks
+      : [...tasksByStatus[destStatusId]]
 
+    // Remove from source
+    const [movedTask] = sourceTasks.splice(source.index, 1)
+    if (!movedTask) return
+
+    // Insert into destination
     if (sourceStatusId === destStatusId) {
-      // Reordering within the same column
-      const [movedTask] = destTasks.splice(source.index, 1)
-      destTasks.splice(destination.index, 0, movedTask)
+      sourceTasks.splice(destination.index, 0, movedTask)
     } else {
-      // Moving to a different column
-      const allTasks = Object.values(tasksByStatus).flat()
-      const task = allTasks.find((t) => t._id === taskId)
-      if (!task) return
-      destTasks.splice(destination.index, 0, task)
+      destTasks.splice(destination.index, 0, movedTask)
     }
 
-    // Call the reorder mutation directly
+    // Set optimistic state immediately
+    setOptimisticTasks((prev) => ({
+      ...prev,
+      [sourceStatusId]: sourceTasks,
+      ...(sourceStatusId !== destStatusId && { [destStatusId]: destTasks }),
+    }))
+
+    // Call the reorder mutation
     const orderedIds = destTasks.map((t) => t._id)
     reorderTasks({ listId, status: destStatusId as Doc<"tasks">["status"], orderedIds })
   }
 
   return (
-    <div className="flex h-full flex-col">
-      <DragDropContext onDragEnd={onDragEnd}>
-        <div className="flex min-h-0 flex-1 gap-4">
-          {statuses.map((taskStatus) => {
-            const tasks = tasksByStatus[taskStatus.id] ?? []
-            const pagination = getPaginationForStatus(taskStatus.id)
-            return (
-              <BoardColumn
-                key={taskStatus.id}
-                status={taskStatus}
-                tasks={tasks}
-                paginationStatus={pagination.status}
-                isLoadingMore={pagination.isLoading}
-                loadMore={pagination.loadMore}
-                numItemsPerPage={TASKS_PER_PAGE}
-              />
-            )
-          })}
-        </div>
-      </DragDropContext>
-    </div>
+    <>
+      <div className="flex h-full flex-col">
+        <DragDropContext onDragStart={handleDragStart} onDragEnd={handleDragEnd}>
+          <div className={cn("flex flex-1 gap-4 overflow-x-auto pb-2", isDragging && "**:cursor-pointer")}>
+            {defaultStatuses.map((taskStatus: TaskStatus) => {
+              const statusKey = taskStatus.id as Doc<"tasks">["status"]
+              const query = statusQueries[statusKey]
+              return (
+                <BoardColumn
+                  key={taskStatus.id}
+                  status={taskStatus}
+                  tasks={tasksByStatus[statusKey]}
+                  onAddTask={() => {
+                    setEditingTask(null)
+                    setDefaultStatus(statusKey)
+                    setIsDialogOpen(true)
+                  }}
+                  onTaskClick={(task) => {
+                    setEditingTask(task)
+                    setIsDialogOpen(true)
+                  }}
+                >
+                  <InfiniteScroll
+                    status={query.status}
+                    isLoading={query.isLoading}
+                    loadMore={query.loadMore}
+                    numItems={TASKS_PER_PAGE}
+                  />
+                </BoardColumn>
+              )
+            })}
+          </div>
+        </DragDropContext>
+      </div>
+      <TaskDialog
+        open={isDialogOpen}
+        onOpenChange={(open) => {
+          setIsDialogOpen(open)
+          if (!open) {
+            setEditingTask(null)
+          }
+        }}
+        listId={listId}
+        mode={editingTask ? "edit" : "create"}
+        task={editingTask ?? undefined}
+        taskId={editingTask?._id}
+        defaultStatus={editingTask ? undefined : defaultStatus}
+      />
+    </>
   )
 }
 
 type BoardColumnProps = {
   status: TaskStatus
   tasks: Task[]
-  paginationStatus: PaginationStatus
-  isLoadingMore: boolean
-  loadMore: (numItems: number) => void
-  numItemsPerPage: number
+  children: React.ReactNode
+  onAddTask: () => void
+  onTaskClick: (task: Task) => void
 }
 
 function BoardColumn({
   status,
   tasks,
-  paginationStatus,
-  isLoadingMore,
-  loadMore,
-  numItemsPerPage,
+  children,
+  onAddTask,
+  onTaskClick,
 }: BoardColumnProps) {
   return (
-    <div className={cn("flex h-full max-h-full min-w-0 flex-1 flex-col rounded-lg p-2", status.columnClassName)}>
-      <div className="mb-3 flex shrink-0 items-center justify-between px-2">
+    <div className={cn("grid h-full max-h-full min-w-75 flex-1 grid-rows-[auto_1fr] rounded-lg p-2", status.columnClassName)}>
+      <div className="mb-3 flex shrink-0 sticky top-0  items-center justify-between px-2">
         <div className="flex items-center gap-2">
           <Badge
             variant="outline"
@@ -179,24 +241,20 @@ function BoardColumn({
             )}
           >
             {tasks.map((task, index) => (
-              <TaskCard key={task._id} task={task} index={index} />
+              <TaskCard key={task._id} task={task} index={index} onClick={() => onTaskClick(task)} />
             ))}
             {provided.placeholder}
 
             <Button
               variant="ghost"
               className="mt-1 w-full shrink-0 justify-start gap-2 text-muted-foreground hover:bg-black/5 hover:text-foreground"
+              onClick={onAddTask}
             >
               <Plus className="size-4" />
               Add Task
             </Button>
 
-            <InfiniteScroll
-              status={paginationStatus}
-              isLoading={isLoadingMore}
-              loadMore={loadMore}
-              numItems={numItemsPerPage}
-            />
+            {children}
           </div>
         )}
       </Droppable>
@@ -204,60 +262,83 @@ function BoardColumn({
   )
 }
 
-function TaskCard({ task, index }: { task: Task; index: number }) {
+function TaskCard({ task, index, onClick }: { task: Task; index: number; onClick: () => void }) {
+  const trpc = useTRPC()
+  const { data } = useQuery(trpc.organization.listMembers.queryOptions({ limit: 100 }))
+  const members = data?.items ?? []
+
+  const assignedMembers = React.useMemo(() => {
+    return members.filter((m) => task.assigneeIds.includes(m.id))
+  }, [members, task.assigneeIds])
+
+  const priorityOption = task.priority
+    ? priorityOptions.find((opt) => opt.value === task.priority)
+    : null
+
+  const formattedDate = task.dueDate ? formatTaskDate(task.dueDate) : null
+
   return (
     <Draggable draggableId={task._id} index={index}>
-      {(provided, snapshot) => (
-        <div
-          ref={provided.innerRef}
-          {...provided.draggableProps}
-          {...provided.dragHandleProps}
-          className={cn(
-            "flex flex-col gap-3 rounded-lg border bg-card p-3 shadow-sm transition-all hover:shadow-md",
-            snapshot.isDragging && "rotate-2 shadow-lg ring-2 ring-primary/20"
-          )}
-        >
-          <div className="text-sm font-medium leading-tight">{task.title}</div>
+      {(provided, snapshot) => {
+        return (
+          <div
+            ref={provided.innerRef}
+            {...provided.draggableProps}
+            {...provided.dragHandleProps}
+            onClick={() => {
+              if (!snapshot.isDragging) onClick()
+            }}
+            className="flex flex-col gap-3 rounded-lg bg-card text-foreground dark:bg-secondary p-3 border cursor-pointer!"
+          >
+            <div className="text-sm font-medium leading-tight">{task.title}</div>
 
-          <div className="flex items-center justify-between text-muted-foreground">
-            <div className="flex items-center gap-2">
-              {task.assigneeIds.length > 0 && (
-                <div className="flex items-center gap-1">
-                  {task.assigneeIds.slice(0, 2).map((assigneeId) => (
-                    <span key={assigneeId} className="text-xs">
-                      {assigneeId}
-                    </span>
-                  ))}
-                  {task.assigneeIds.length > 2 && (
-                    <span className="text-xs">+{task.assigneeIds.length - 2}</span>
-                  )}
-                </div>
-              )}
-              {task.dueDate && (
-                <div className="flex items-center gap-1 text-xs">
-                  <Calendar className="size-3" />
-                  <span>{formatTaskDate(task.dueDate)}</span>
-                </div>
-              )}
-            </div>
+            <div className="flex items-center justify-between">
+              <div className="flex items-center gap-2">
+                {assignedMembers.length > 0 && (
+                  <div className="flex items-center gap-1 -space-x-1">
+                    {assignedMembers.slice(0, 2).map((member) => (
+                      <Avatar
+                        key={member.id}
+                        className="size-5"
+                      >
+                        <AvatarImage src={member.profilePictureUrl || undefined} />
+                        <AvatarFallback className="text-[10px] font-medium text-white">
+                          {getMemberInitials(member)}
+                        </AvatarFallback>
+                      </Avatar>
+                    ))}
+                    {assignedMembers.length > 2 && (
+                      <span className="ml-1 text-xs font-medium">
+                        +{assignedMembers.length - 2}
+                      </span>
+                    )}
+                  </div>
+                )}
+                {formattedDate && (
+                  <div className="flex items-center gap-1 text-xs">
+                    <Calendar className="size-3" />
+                    <span>{formattedDate}</span>
+                  </div>
+                )}
+              </div>
 
-            <div className="flex items-center gap-2">
-              {task.priority && (
-                <div
-                  className={cn(
-                    "flex items-center gap-1 text-xs",
-                    task.priority === "urgent" && "text-red-500",
-                    task.priority === "high" && "text-amber-500",
-                    task.priority === "normal" && "text-blue-500"
-                  )}
-                >
-                  <Flag className="size-3 fill-current" />
-                </div>
-              )}
+              <div className="flex items-center gap-2">
+                {priorityOption && (
+                  <div
+                    className={cn(
+                      "flex items-center gap-1 text-xs",
+                      priorityOption.flagColor
+                    )}
+                  >
+                    <Flag className="size-3 fill-current" />
+                    <span className="font-medium">{priorityOption.label}</span>
+                  </div>
+                )}
+              </div>
             </div>
           </div>
-        </div>
-      )}
+        )
+      }}
     </Draggable>
   )
 }
