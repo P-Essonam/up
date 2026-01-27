@@ -20,7 +20,11 @@ export default defineSchema({
     updatedAt: v.number(),
   })
     .index("by_organization", ["organizationId"])
-    .index("by_organization_and_sort", ["organizationId", "sortOrder"]),
+    .index("by_organization_and_sort", ["organizationId", "sortOrder"])
+    .searchIndex("search_by_name", {
+      searchField: "name",
+      filterFields: ["organizationId"],
+    }),
 
   // Lists - Container for tasks within a space
   lists: defineTable({
@@ -32,7 +36,11 @@ export default defineSchema({
     updatedAt: v.number(),
   })
     .index("by_space", ["spaceId"])
-    .index("by_space_and_sort", ["spaceId", "sortOrder"]),
+    .index("by_space_and_sort", ["spaceId", "sortOrder"])
+    .searchIndex("search_by_name", {
+      searchField: "name",
+      filterFields: ["organizationId", "spaceId"],
+    }),
 
   // Tasks - Individual work items within a list
   tasks: defineTable({
@@ -44,7 +52,7 @@ export default defineSchema({
       v.literal("in-progress"),
       v.literal("complete")
     ),
-    sortOrder: v.number(), // Order within status column
+    sortOrder: v.number(),
     priority: v.optional(
       v.union(
         v.literal("low"),
@@ -62,5 +70,15 @@ export default defineSchema({
   })
     .index("by_organizationId_and_listId", ["organizationId", "listId"])
     .index("by_list_status_and_sort", ["listId", "status", "sortOrder"])
-    .index("by_org_list_status_sort", ["organizationId", "listId", "status", "sortOrder"]),
+    .index("by_org_list_status_sort", ["organizationId", "listId", "status", "sortOrder"])
+    .searchIndex("search_by_title", {
+      searchField: "title",
+      filterFields: ["organizationId", "listId"],
+    }),
+
+  // Current Threads - Stores the current active thread per user
+  currentThreads: defineTable({
+    threadId: v.string(),
+    userId: v.string(),
+  }).index("by_userId", ["userId"]),
 })

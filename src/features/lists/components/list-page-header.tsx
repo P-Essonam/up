@@ -11,7 +11,6 @@ import { cn } from "@/lib/utils"
 import { VIEW_PARAM, VIEW_TABS, listViewParser } from "../lib/constants"
 import { useAskAIStore } from "../hooks/use-ask-ai-store"
 import { TaskDialog } from "@/features/tasks/components/task-dialog"
-import type { Id } from "../../../../convex/_generated/dataModel"
 
 type ListPageHeaderProps = {
   preloadedGetListWithSpace: Preloaded<typeof api.lists.getListWithSpace>
@@ -19,9 +18,10 @@ type ListPageHeaderProps = {
 
 export function ListPageHeader({ preloadedGetListWithSpace }: ListPageHeaderProps) {
   const [view, setView] = useQueryState(VIEW_PARAM, listViewParser)
-  const open = useAskAIStore((state) => state.open)
+  const { open } = useAskAIStore()
   const data = usePreloadedQuery(preloadedGetListWithSpace)
   const [taskDialogOpen, setTaskDialogOpen] = React.useState(false)
+
 
   return (
     <header className="flex shrink-0 flex-col bg-background px-6 pt-3">
@@ -50,7 +50,7 @@ export function ListPageHeader({ preloadedGetListWithSpace }: ListPageHeaderProp
             <Plus className="size-4" />
             Add Task
           </Button>
-          <Button variant={"secondary"} size="sm" className="h-8 gap-2" onClick={open}>
+          <Button variant="secondary" size="sm" className="h-8 gap-2" onClick={open}>
             <Sparkles className="size-4" />
             Ask AI
           </Button>

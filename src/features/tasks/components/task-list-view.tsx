@@ -23,7 +23,7 @@ import { TaskDueDateCell } from "./task-due-date-cell"
 import { TaskPriorityCell } from "./task-priority-cell"
 import { TaskDialog } from "./task-dialog"
 import { DeleteConfirmDialog } from "@/components/delete-confirm-dialog"
-import { TASKS_PER_PAGE } from "@/features/lists/lib/constants"
+import { PER_PAGE } from "@/lib/constants"
 import type { Task } from "../lib/types"
 
 type TaskListViewProps = {
@@ -52,12 +52,12 @@ export default function TaskListView({
   const todoTasks = usePaginatedQuery(
     api.tasks.listByListAndStatus,
     { listId, status: "todo" },
-    { initialNumItems: TASKS_PER_PAGE }
+    { initialNumItems: PER_PAGE }
   )
   const inProgressTasks = usePaginatedQuery(
     api.tasks.listByListAndStatus,
     { listId, status: "in-progress" },
-    { initialNumItems: TASKS_PER_PAGE }
+    { initialNumItems: PER_PAGE }
   )
 
   // Filter statuses to only show those with at least one task
@@ -210,7 +210,7 @@ export default function TaskListView({
                       status={queryResult.status}
                       isLoading={queryResult.isLoading}
                       loadMore={queryResult.loadMore}
-                      numItems={TASKS_PER_PAGE}
+                      numItems={PER_PAGE}
                     />
                   </div>
                 )}

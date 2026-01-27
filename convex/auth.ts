@@ -1,8 +1,8 @@
 import { ConvexError } from "convex/values"
-import { QueryCtx, MutationCtx } from "./_generated/server"
+import { ActionCtx, MutationCtx, QueryCtx } from "./_generated/server"
 
 export async function getOrganizationId(
-  ctx: QueryCtx | MutationCtx
+  ctx: QueryCtx | MutationCtx | ActionCtx
 ): Promise<string> {
   const identity = await ctx.auth.getUserIdentity()
   if (identity === null) {
@@ -19,4 +19,24 @@ export async function getOrganizationId(
     })
   }
   return org_id
+}
+
+export async function getUserId(
+  ctx: QueryCtx | MutationCtx | ActionCtx
+): Promise<string> {
+  const identity = await ctx.auth.getUserIdentity()
+  if (identity === null) {
+    throw new ConvexError({
+      code: "UNAUTHORIZED",
+      message: "Identity not found",
+    })
+  }
+  const user_id = identity.subject
+  if (!user_id) {
+    throw new ConvexError({
+      code: "NOT_FOUND",
+      message: "User ID not found",
+    })
+  }
+  return user_id
 }
