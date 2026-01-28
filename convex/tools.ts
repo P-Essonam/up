@@ -40,7 +40,7 @@ export const getSpace = createTool({
 })
 
 export const findSpaceByName = createTool({
-  description: "Find a space by name",
+  description: "Find spaces by name (case-insensitive, partial matching)",
   args: z.object({ query: z.string().min(1).describe("Space name to search"), limit: zLimit }),
   handler: async (ctx: BrainCtx, args): Promise<Doc<"spaces">[]> => {
     return await ctx.runQuery(internal.toolsApi.findSpacesByName, {
@@ -103,10 +103,10 @@ export const getList = createTool({
 })
 
 export const findListByName = createTool({
-  description: "Find a list by name",
+  description: "Find lists by name (case-insensitive, partial matching). Searches across all spaces if no spaceId is provided.",
   args: z.object({
     query: z.string().min(1).describe("List name to search"),
-    spaceId: z.string().optional().describe("Limit to this space"),
+    spaceId: z.string().optional().describe("Optional: Limit search to this specific space"),
     limit: zLimit,
   }),
   handler: async (ctx: BrainCtx, args): Promise<Doc<"lists">[]> => {
@@ -181,10 +181,10 @@ export const getTask = createTool({
 })
 
 export const findTask = createTool({
-  description: "Search tasks by title",
+  description: "Search tasks by title or description (case-insensitive, partial matching). Searches across all lists in the workspace if no listId is provided.",
   args: z.object({
-    query: z.string().min(1).describe("Text to search"),
-    listId: z.string().optional().describe("Limit to this list"),
+    query: z.string().min(1).describe("Text to search in task title or description"),
+    listId: z.string().optional().describe("Optional: Limit search to this specific list"),
     limit: zLimit,
   }),
   handler: async (ctx: BrainCtx, args): Promise<Doc<"tasks">[]> => {

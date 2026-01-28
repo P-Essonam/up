@@ -18,6 +18,7 @@ import z from "zod/v3"
 
 export type BrainCtx = ToolCtx & {
     organizationId: string
+    userId: string
 }
 
 const instructions = `You are Brain, an AI assistant for this project management workspace.
@@ -57,16 +58,32 @@ Lucide icons (PascalCase): Folder, Rocket, Star, Home, Settings, Users, Calendar
 
 ## Rules
 1. Always use tools - never fabricate IDs or data
-2. When user mentions a name, use find* tools to search, then use the ID from results
-3. If find* returns multiple results, show them and ask user to choose
-4. If result is null or empty array, inform user
-5. Be concise after mutations`
+2. When user mentions a name, title, or description, use find* tools to search. **Search is case-insensitive and searches both titles and descriptions for tasks**. If initial search in a specific list/space returns no results, try searching without the listId/spaceId to search across the entire workspace.
+3. If find* returns multiple results, show them and ask user to choose. **When displaying multiple search results, use a markdown table** so it renders properly in the UI:
+   - A header row like: \`| Title | Status | Priority | Due date | Assignees |\`
+   - A separator row: \`| --- | --- | --- | --- | --- |\`
+   - One row per item using short text (no long paragraphs in a single cell).
+4. If result is null or empty array, try a broader search (remove listId/spaceId filters) before informing the user. Search supports partial matching, so even partial words will match.
+5. Be concise after mutations
+
+## Response Guidelines (IMPORTANT)
+Keep responses **short and concise**. Use proper markdown so the UI can render data cleanly:
+
+- **After queries**: Brief summary, no need to repeat all data (the UI displays it). **When showing many tasks/lists**, provide a useful summary using a **bullet or numbered list** format. Include counts by status and any other useful details (e.g., priorities, due dates, assignees). Do not list all individual items - the tool results already show the full data.
+- **Use markdown formatting**:
+  - **Bold** for entity names (spaces, lists, tasks)
+  - **Never show IDs** - always use entity names (spaces, lists, tasks) instead
+  - Bullet lists for a few items or short summaries
+  - Avoid long paragraphs - prefer short sentences
+- **Do NOT** explain what tools you used or how you did it.
+- **Maximum response length**: 2-3 sentences for simple operations, 4-5 sentences for complex queries.
+`
 
 
 
 export const brainAgent = new Agent<BrainCtx>(components.agent, {
     name: "Brain",
-    languageModel: "anthropic/claude-sonnet-4.5",
+    languageModel: "moonshotai/kimi-k2.5",
     instructions,
     tools,
     stopWhen: stepCountIs(10),
@@ -75,8 +92,8 @@ export const brainAgent = new Agent<BrainCtx>(components.agent, {
     },
     // Debugging tools
     rawRequestResponseHandler: async (ctx, { request, response }) => {
+        console.log(`==========================${response.id}=====================`);
         console.log("response", response);
-        console.log("================================================");
     },
 })
 
@@ -123,12 +140,13 @@ export const sendMessage = mutation({
             spaceId: args.spaceId,
             listId: args.listId,
             organizationId,
+            userId,
         })
 
         // Generate title for new threads
         const details = await ctx.runQuery(internal.brain.getThreadDetails, { threadId })
         if (!details?.title || !details?.summary) {
-            await ctx.scheduler.runAfter(0, internal.brain.updateThreadTitle, { threadId, organizationId })
+            await ctx.scheduler.runAfter(0, internal.brain.updateThreadTitle, { threadId, organizationId, userId })
         }
 
         return { threadId }
@@ -144,8 +162,9 @@ export const streamAsync = internalAction({
         spaceId: v.optional(v.id("spaces")),
         listId: v.optional(v.id("lists")),
         organizationId: v.string(),
+        userId: v.string(),
     },
-    handler: async (ctx, { promptMessageId, threadId, spaceId, listId, organizationId }) => {
+    handler: async (ctx, { promptMessageId, threadId, spaceId, listId, organizationId, userId }) => {
         // Build context messages array
         const contextMessages: { role: "user"; content: string }[] = []
         let contextContent = ""
@@ -158,7 +177,7 @@ export const streamAsync = internalAction({
         ${listId ? `List ID: ${listId}` : ""}
 
         IMPORTANT:
-        1. Use the provided ID(s) directly when calling tools - do not search by name.
+        1. Use the provided ID(s) directly when calling tools.
         2. Keep actions scoped to the specified ${spaceId && listId ? "space and list" : listId ? "list" : "space"} unless explicitly asked otherwise.
       `.trim()
         } else {
@@ -181,7 +200,7 @@ export const streamAsync = internalAction({
         }
 
         const result = await brainAgent.streamText(
-            { ...ctx, organizationId },
+            { ...ctx, organizationId, userId },
             { threadId },
             {
                 promptMessageId,
@@ -279,9 +298,9 @@ export const getThreadDetails = internalQuery({
 });
 
 export const updateThreadTitle = internalAction({
-    args: { threadId: v.string(), organizationId: v.string() },
-    handler: async (ctx, { threadId, organizationId }) => {
-        const { thread } = await brainAgent.continueThread({ ...ctx, organizationId }, { threadId });
+    args: { threadId: v.string(), organizationId: v.string(), userId: v.string() },
+    handler: async (ctx, { threadId, organizationId, userId }) => {
+        const { thread } = await brainAgent.continueThread({ ...ctx, organizationId, userId }, { threadId });
         const {
             object: { title, summary },
         } = await thread.generateObject(
@@ -308,9 +327,9 @@ export const renameThread = action({
         title: v.string(),
     },
     handler: async (ctx, args) => {
-        await getUserId(ctx)
+        const userId = await getUserId(ctx)
         const organizationId = await getOrganizationId(ctx)
-        const { thread } = await brainAgent.continueThread({ ...ctx, organizationId }, { threadId: args.threadId })
+        const { thread } = await brainAgent.continueThread({ ...ctx, organizationId, userId }, { threadId: args.threadId })
         await thread.updateMetadata({ title: args.title })
     },
 })

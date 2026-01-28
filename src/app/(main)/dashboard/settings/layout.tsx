@@ -9,7 +9,7 @@ import { cn } from "@/lib/utils"
 const settingsNavItems = [
   { title: "General", url: "/dashboard/settings", icon: Settings },
   { title: "Members", url: "/dashboard/settings/members", icon: Users },
-  { title: "Pending", url: "/dashboard/settings/pending", icon: Clock },
+  { title: "Invitations", url: "/dashboard/settings/pending", icon: Clock },
 ]
 
 export default function SettingsLayout({ children }: { children: React.ReactNode }) {
