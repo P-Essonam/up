@@ -14,7 +14,7 @@ import { defaultStatuses, priorityOptions } from "@/features/tasks/lib/constants
 import type { Doc, Id } from "../../../../convex/_generated/dataModel"
 import { api } from "../../../../convex/_generated/api"
 import { InfiniteScroll } from "@/components/infinite-scroll"
-import { TASKS_PER_PAGE } from "@/features/lists/lib/constants"
+import { PER_PAGE } from "@/lib/constants"
 import { useQuery } from "@tanstack/react-query"
 import { useTRPC } from "@/trpc/client"
 import { TaskDialog } from "./task-dialog"
@@ -39,17 +39,17 @@ export default function TaskBoardView({
   const todoQuery = usePaginatedQuery(
     api.tasks.listByListAndStatus,
     { listId, status: "todo" },
-    { initialNumItems: TASKS_PER_PAGE }
+    { initialNumItems: PER_PAGE }
   )
   const inProgressQuery = usePaginatedQuery(
     api.tasks.listByListAndStatus,
     { listId, status: "in-progress" },
-    { initialNumItems: TASKS_PER_PAGE }
+    { initialNumItems: PER_PAGE }
   )
   const completeQuery = usePaginatedQuery(
     api.tasks.listByListAndStatus,
     { listId, status: "complete" },
-    { initialNumItems: TASKS_PER_PAGE }
+    { initialNumItems: PER_PAGE }
   )
 
   // Map status IDs to their query results
@@ -155,7 +155,8 @@ export default function TaskBoardView({
     const orderedIds = destTasks.map((t) => t._id)
     try {
       await reorderTasks({ listId, status: destStatusId as Doc<"tasks">["status"], orderedIds })
-    } catch {
+    } catch (error) {
+      console.error('Failed to reorder tasks:', error)
       // Rollback to previous state on failure
       setOptimisticTasks(previousOptimisticState)
     }
@@ -188,7 +189,7 @@ export default function TaskBoardView({
                     status={query.status}
                     isLoading={query.isLoading}
                     loadMore={query.loadMore}
-                    numItems={TASKS_PER_PAGE}
+                    numItems={PER_PAGE}
                   />
                 </BoardColumn>
               )

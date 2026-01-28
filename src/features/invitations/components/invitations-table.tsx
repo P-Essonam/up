@@ -32,9 +32,9 @@ export default function InvitationsTable() {
     <div className="rounded-xl border border-border/60 bg-background">
       <div className="flex items-center justify-between border-b border-border/60 px-2 py-3">
         <div>
-          <h2 className="text-sm font-semibold">Pending invitations</h2>
+          <h2 className="text-sm font-semibold">Invitations</h2>
           <p className="text-xs text-muted-foreground">
-            Manage pending member invitations.
+            Manage member invitations.
           </p>
         </div>
       </div>
@@ -72,7 +72,7 @@ export default function InvitationsTable() {
             <TableRow>
               <TableCell colSpan={4} className="py-10 text-center">
                 <span className="text-sm text-muted-foreground">
-                  No pending invitations.
+                  No invitations found.
                 </span>
               </TableCell>
             </TableRow>
